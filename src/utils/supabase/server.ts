@@ -1,13 +1,12 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
-import { redirect } from 'next/navigation'
 
-export default async function Home() {
-  // Get the cookie store - await it since it's now asynchronous in Next.js 15
+// In Next.js 15, cookies() is now asynchronous and needs to be awaited
+export async function createClient() {
+  // Get the cookie store - await it since it's now asynchronous
   const cookieStore = await cookies()
   
-  // Create a Supabase client for server components
-  const supabase = createServerClient(
+  return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
@@ -34,15 +33,4 @@ export default async function Home() {
       },
     }
   )
-
-  // Get the user from the session
-  const { data: { user } } = await supabase.auth.getUser()
-
-  // If there's a user, redirect to the dashboard
-  if (user) {
-    redirect('/dashboard')
-  }
-
-  // If there's no user, redirect to the auth page
-  redirect('/auth')
 }
