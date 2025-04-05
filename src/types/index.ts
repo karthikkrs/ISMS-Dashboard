@@ -23,3 +23,19 @@ export type ProjectStats = {
   completed: number;
   on_hold: number;
 };
+
+// Boundary types for Module 3
+export type BoundaryType = 'Department' | 'System' | 'Location' | 'Other';
+
+export type Boundary = {
+  id: string;
+  project_id: string;
+  name: string;
+  type: BoundaryType;
+  description: string | null;
+  included: boolean;
+  notes: string | null;
+  user_id: string;
+  created_at: string;
+  updated_at: string;
+};

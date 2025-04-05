@@ -46,6 +46,21 @@
    - Added permission checks for project deletion
    - Integrated with Supabase authentication
 
+## Module 3: Boundaries Definition
+1. **Feature 3.1: Add Boundaries**
+   - Created boundary form component with validation
+   - Implemented boundary type selection (Department, System, Location, Other)
+   - Added inclusion/exclusion toggle for ISMS scope
+   - Integrated with Supabase for data storage
+
+2. **Feature 3.2: Manage Boundaries**
+   - Built boundaries table using @tanstack/react-table
+   - Implemented search, filtering, and sorting capabilities
+   - Added inline editing functionality
+   - Created delete confirmation with modal dialogs
+   - Added summary statistics for boundaries
+
 ## Current Progress
 - Completed Module 2: Dashboard & Projects Overview
-- Ready to begin Module 3: Boundaries Definition
+- Completed Module 3: Boundaries Definition
+- Ready to begin Module 4: Objectives Management

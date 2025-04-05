@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
@@ -14,6 +14,8 @@ import {
   CheckSquareIcon,
   BarChart2Icon
 } from 'lucide-react'
+import { getBoundaries } from '@/services/boundary-service'
+import { useQuery } from '@tanstack/react-query'
 
 interface ProjectNavigationProps {
   projectId: string
@@ -21,6 +23,18 @@ interface ProjectNavigationProps {
 
 export function ProjectNavigation({ projectId }: ProjectNavigationProps) {
   const pathname = usePathname()
+  
+  // Fetch boundaries data to check if completed
+  const { data: boundaries = [] } = useQuery({
+    queryKey: ['boundaries', projectId],
+    queryFn: () => getBoundaries(projectId),
+    // Don't show loading or error states in the navigation
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    refetchOnWindowFocus: false
+  })
+  
+  // Determine if boundaries section is completed
+  const boundariesCompleted = boundaries.length > 0
   
   const navItems = [
     {
@@ -33,7 +47,7 @@ export function ProjectNavigation({ projectId }: ProjectNavigationProps) {
       name: 'Boundaries',
       href: `/dashboard/projects/${projectId}/boundaries`,
       icon: MapIcon,
-      completed: false
+      completed: boundariesCompleted
     },
     {
       name: 'Objectives',
