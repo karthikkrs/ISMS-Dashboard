@@ -39,3 +39,31 @@ export type Boundary = {
   created_at: string;
   updated_at: string;
 };
+
+// Objective types for Module 4
+export type ObjectivePriority = 'High' | 'Medium' | 'Low';
+
+export type Objective = {
+  id: string;
+  project_id: string;
+  statement: string;
+  priority: ObjectivePriority;
+  order?: number;
+  user_id: string;
+  created_at: string;
+  updated_at?: string;
+};
+
+// Stakeholder types for Module 5
+export type Stakeholder = {
+  id: string;
+  project_id: string;
+  name: string;
+  role?: string;
+  email?: string;
+  phone?: string;
+  responsibilities?: string;
+  user_id: string;
+  created_at: string;
+  updated_at?: string;
+};

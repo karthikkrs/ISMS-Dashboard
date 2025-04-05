@@ -75,7 +75,8 @@ export const createBoundary = async (
     .single()
   
   if (error) {
-    console.error('Error creating boundary:', error)
+    console.error('Error creating boundary:', JSON.stringify(error, null, 2))
+    console.error('Boundary data attempted to save:', JSON.stringify(boundaryWithIds, null, 2))
     throw error
   }
   
@@ -116,7 +117,8 @@ export const updateBoundary = async (
     .single()
   
   if (error) {
-    console.error('Error updating boundary:', error)
+    console.error('Error updating boundary:', JSON.stringify(error, null, 2))
+    console.error('Boundary data attempted to update:', JSON.stringify(boundary, null, 2))
     throw error
   }
   

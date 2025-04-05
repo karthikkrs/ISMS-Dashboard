@@ -71,7 +71,8 @@ export function BoundaryForm({ projectId, boundary, isEditing = false, onSuccess
       }
     } catch (err) {
       console.error('Error saving boundary:', err)
-      setError('Failed to save boundary. Please try again.')
+      console.error('Form data attempted to save:', JSON.stringify(data, null, 2))
+      setError(`Failed to save boundary: ${err instanceof Error ? err.message : 'Unknown error'}`)
     } finally {
       setIsSubmitting(false)
     }

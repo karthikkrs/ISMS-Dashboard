@@ -60,7 +60,34 @@
    - Created delete confirmation with modal dialogs
    - Added summary statistics for boundaries
 
+## Module 4: Objectives Management
+1. **Feature 4.1: Define Objectives**
+   - Created objective form component with statement and priority fields
+   - Implemented priority selection (High/Medium/Low)
+   - Added validation with react-hook-form and zod
+   - Integrated with Supabase for data storage
+
+2. **Feature 4.2: Manage Objectives**
+   - Built objectives list component with priority indicators
+   - Implemented drag-and-drop reordering using @hello-pangea/dnd
+   - Added edit and delete functionality
+   - Created summary statistics for objectives
+
+## Module 5: Stakeholder Management
+1. **Feature 5.1: Add Stakeholders**
+   - Building stakeholder form with name, role, contact info
+   - Adding responsibilities field
+   - Implementing validation with react-hook-form and zod
+   - Integrating with Supabase for data storage
+
+2. **Feature 5.2: Manage Stakeholders**
+   - Creating stakeholder table with all fields
+   - Implementing edit functionality
+   - Adding delete with confirmation
+   - Creating summary statistics for stakeholders
+
 ## Current Progress
 - Completed Module 2: Dashboard & Projects Overview
 - Completed Module 3: Boundaries Definition
-- Ready to begin Module 4: Objectives Management
+- Completed Module 4: Objectives Management
+- In Progress: Module 5: Stakeholder Management

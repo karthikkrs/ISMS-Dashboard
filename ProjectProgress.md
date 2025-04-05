@@ -10,5 +10,13 @@ Module 3: Boundaries Definition
 - Feature 3.1: Add Boundaries ✅
 - Feature 3.2: Manage Boundaries ✅
 
+Module 4: Objectives Management
+- Feature 4.1: Define Objectives ✅
+- Feature 4.2: Manage Objectives ✅
+
+Module 5: Stakeholder Management
+- Feature 5.1: Add Stakeholders ✅
+- Feature 5.2: Manage Stakeholders ✅
+
 ## Current Module
-Module 4: Objectives Management (Not Started)
+Module 6: Statement of Work (SOW) (Not Started)
