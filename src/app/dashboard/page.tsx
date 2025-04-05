@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
+import { ProjectsDashboard } from '@/components/projects/projects-dashboard'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
@@ -46,56 +47,17 @@ export default async function DashboardPage() {
     redirect('/auth')
   }
 
-  // Get the session
-  const { data: { session } } = await supabase.auth.getSession()
-
   return (
     <div className="container mx-auto py-10">
-      <h1 className="text-3xl font-bold mb-6">Dashboard</h1>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>User Information</CardTitle>
-            <CardDescription>Your account details</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <div>
-                <span className="font-semibold">Email:</span> {user.email}
-              </div>
-              <div>
-                <span className="font-semibold">User ID:</span> {user.id}
-              </div>
-              <div>
-                <span className="font-semibold">Last Sign In:</span> {session ? new Date().toLocaleString() : 'N/A'}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Authentication Status</CardTitle>
-            <CardDescription>Your current session information</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <div>
-                <span className="font-semibold">Status:</span> 
-                <span className="ml-2 inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
-                  Authenticated
-                </span>
-              </div>
-              <div>
-                <span className="font-semibold">Session Expires:</span> {new Date(session?.expires_at ? session.expires_at * 1000 : '').toLocaleString()}
-              </div>
-            </div>
-          </CardContent>
-          <CardFooter className="flex justify-between">
+      <div className="mb-10">
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-3xl font-bold">ISMS Dashboard</h1>
+          <div className="flex items-center space-x-2">
+            <span className="text-sm text-gray-500">
+              Welcome, {user.email}
+            </span>
             <form action={async () => {
               'use server'
-              // Get the cookie store - await it since it's now asynchronous in Next.js 15
               const cookieStore = await cookies()
               
               const supabase = createServerClient(
@@ -122,14 +84,14 @@ export default async function DashboardPage() {
               await supabase.auth.signOut()
               redirect('/')
             }}>
-              <Button type="submit" variant="destructive">Sign Out</Button>
+              <Button type="submit" variant="outline" size="sm">Sign Out</Button>
             </form>
-            <Link href="/">
-              <Button variant="outline">Back to Home</Button>
-            </Link>
-          </CardFooter>
-        </Card>
+          </div>
+        </div>
       </div>
+      
+      {/* Projects Dashboard */}
+      <ProjectsDashboard />
     </div>
   )
 }
