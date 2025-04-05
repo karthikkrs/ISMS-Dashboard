@@ -50,7 +50,6 @@ export const createStakeholder = async (
     name: string
     role?: string
     email?: string
-    phone?: string
     responsibilities?: string
   }
 ): Promise<Stakeholder> => {

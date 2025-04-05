@@ -5,9 +5,9 @@ import { useQuery } from '@tanstack/react-query'
 import { getBoundaries } from '@/services/boundary-service'
 import { Boundary } from '@/types'
 import { BoundariesTable } from './boundaries-table'
-import { BoundaryForm } from './boundary-form'
+import { MultiBoundaryForm } from './multi-boundary-form'
 import { Button } from '@/components/ui/button'
-import { PlusIcon, Loader2Icon } from 'lucide-react'
+import { Plus, Loader2 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
 interface BoundariesDashboardProps {
@@ -38,7 +38,7 @@ export function BoundariesDashboard({ projectId }: BoundariesDashboardProps) {
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px]">
-        <Loader2Icon className="h-8 w-8 animate-spin text-primary mb-4" />
+        <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
         <p className="text-gray-500">Loading boundaries...</p>
       </div>
     )
@@ -63,16 +63,16 @@ export function BoundariesDashboard({ projectId }: BoundariesDashboardProps) {
           <p className="text-gray-500">Define the scope of your ISMS by adding departments, systems, and locations</p>
         </div>
         <Button onClick={() => setShowAddForm(true)}>
-          <PlusIcon className="h-4 w-4 mr-2" />
-          Add Boundary
+          <Plus className="h-4 w-4 mr-2" />
+          Add Boundaries
         </Button>
       </div>
 
       {/* Add Form Modal */}
       {showAddForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-md p-4">
-            <BoundaryForm
+          <div className="w-full max-w-4xl p-4">
+            <MultiBoundaryForm
               projectId={projectId}
               onSuccess={handleFormClose}
             />
@@ -81,32 +81,32 @@ export function BoundariesDashboard({ projectId }: BoundariesDashboardProps) {
       )}
 
       {/* Boundaries Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg">Total Boundaries</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold">{boundaries.length}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg">Included in Scope</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold">{boundaries.filter(b => b.included).length}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg">Excluded from Scope</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold">{boundaries.filter(b => !b.included).length}</p>
-          </CardContent>
-        </Card>
-      </div>
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-lg">Boundaries</CardTitle>
+          <CardDescription>
+            Total boundaries defined for this project
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-4xl font-bold">{boundaries.length}</p>
+              <p className="text-sm text-muted-foreground mt-1">Total</p>
+            </div>
+            <div className="flex space-x-8">
+              <div className="text-center">
+                <p className="text-2xl font-semibold text-green-600">{boundaries.filter(b => b.included).length}</p>
+                <p className="text-sm text-muted-foreground">In Scope</p>
+              </div>
+              <div className="text-center">
+                <p className="text-2xl font-semibold text-red-600">{boundaries.filter(b => !b.included).length}</p>
+                <p className="text-sm text-muted-foreground">Out of Scope</p>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Boundaries Table */}
       <BoundariesTable projectId={projectId} boundaries={boundaries} />
@@ -119,10 +119,10 @@ export function BoundariesDashboard({ projectId }: BoundariesDashboardProps) {
             Start by adding departments, systems, or locations to define your ISMS scope.
           </p>
           <div className="mt-6">
-            <Button onClick={() => setShowAddForm(true)}>
-              <PlusIcon className="h-4 w-4 mr-2" />
-              Add Your First Boundary
-            </Button>
+          <Button onClick={() => setShowAddForm(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Boundaries
+          </Button>
           </div>
         </div>
       )}

@@ -7,7 +7,6 @@ import { cn } from '@/lib/utils'
 import { 
   ClipboardListIcon, 
   MapIcon, 
-  TargetIcon, 
   UsersIcon, 
   FileTextIcon, 
   ShieldIcon, 
@@ -15,7 +14,6 @@ import {
   BarChart2Icon
 } from 'lucide-react'
 import { getBoundaries } from '@/services/boundary-service'
-import { getObjectives } from '@/services/objective-service'
 import { getStakeholders } from '@/services/stakeholder-service'
 import { useQuery } from '@tanstack/react-query'
 
@@ -35,15 +33,6 @@ export function ProjectNavigation({ projectId }: ProjectNavigationProps) {
     refetchOnWindowFocus: false
   })
   
-  // Fetch objectives data to check if completed
-  const { data: objectives = [] } = useQuery({
-    queryKey: ['objectives', projectId],
-    queryFn: () => getObjectives(projectId),
-    // Don't show loading or error states in the navigation
-    staleTime: 1000 * 60 * 5, // 5 minutes
-    refetchOnWindowFocus: false
-  })
-  
   // Fetch stakeholders data to check if completed
   const { data: stakeholders = [] } = useQuery({
     queryKey: ['stakeholders', projectId],
@@ -55,7 +44,6 @@ export function ProjectNavigation({ projectId }: ProjectNavigationProps) {
   
   // Determine if sections are completed
   const boundariesCompleted = boundaries.length > 0
-  const objectivesCompleted = objectives.length > 0
   const stakeholdersCompleted = stakeholders.length > 0
   
   const navItems = [
@@ -72,22 +60,10 @@ export function ProjectNavigation({ projectId }: ProjectNavigationProps) {
       completed: boundariesCompleted
     },
     {
-      name: 'Objectives',
-      href: `/dashboard/projects/${projectId}/objectives`,
-      icon: TargetIcon,
-      completed: objectivesCompleted
-    },
-    {
       name: 'Stakeholders',
       href: `/dashboard/projects/${projectId}/stakeholders`,
       icon: UsersIcon,
       completed: stakeholdersCompleted
-    },
-    {
-      name: 'Statement of Work',
-      href: `/dashboard/projects/${projectId}/sow`,
-      icon: FileTextIcon,
-      completed: false
     },
     {
       name: 'Controls',

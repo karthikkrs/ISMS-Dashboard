@@ -69,22 +69,6 @@ Create stakeholder table with all fields
 Implement edit functionality
 Add delete with confirmation
 
-Module 6: Statement of Work (SOW)
-Libraries: @tiptap/react, @tiptap/extensions, jspdf, @tanstack/react-query, shadcn/ui
-Feature 6.1: SOW Editor
-User Story: As a project owner, I want to create a Statement of Work document so that I can formalize my ISMS scope.
-
-Implement rich text editor using TipTap
-Auto-populate with data from previous steps
-Save document to Supabase
-
-Feature 6.2: SOW Export
-User Story: As a project owner, I want to export my SOW as a PDF so that I can share it with stakeholders.
-
-Create PDF generation using jsPDF
-Format document professionally
-Add download functionality
-
 Module 7: Statement of Applicability (SoA)
 Libraries: @tanstack/react-table, @tanstack/react-query, react-hook-form, zod, @hookform/resolvers, xlsx
 Feature 7.1: Control Listing

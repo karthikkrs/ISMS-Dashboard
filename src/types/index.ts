@@ -61,7 +61,6 @@ export type Stakeholder = {
   name: string;
   role?: string;
   email?: string;
-  phone?: string;
   responsibilities?: string;
   user_id: string;
   created_at: string;

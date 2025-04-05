@@ -17,15 +17,20 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { 
-  CheckCircleIcon, 
-  XCircleIcon, 
-  PencilIcon, 
-  TrashIcon, 
-  SearchIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon
+  CheckCircle, 
+  XCircle, 
+  Pencil, 
+  Trash, 
+  Search,
+  ChevronLeft,
+  ChevronRight,
+  ArrowUpDown,
+  Building2,
+  Globe,
+  Server,
+  FileQuestion
 } from 'lucide-react'
-import { BoundaryForm } from './boundary-form'
+import { MultiBoundaryForm } from './multi-boundary-form'
 import { deleteBoundary } from '@/services/boundary-service'
 import { useRouter } from 'next/navigation'
 
@@ -43,51 +48,114 @@ export function BoundariesTable({ projectId, boundaries }: BoundariesTableProps)
   const [deletingBoundary, setDeletingBoundary] = useState<Boundary | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
 
+  // Get type icon based on boundary type
+  const getTypeIcon = (type: BoundaryType) => {
+    switch (type) {
+      case 'Department':
+        return <Building2 className="h-4 w-4 mr-2 text-blue-500" />;
+      case 'System':
+        return <Server className="h-4 w-4 mr-2 text-purple-500" />;
+      case 'Location':
+        return <Globe className="h-4 w-4 mr-2 text-green-500" />;
+      case 'Other':
+        return <FileQuestion className="h-4 w-4 mr-2 text-gray-500" />;
+    }
+  };
+
   // Define table columns
   const columns: ColumnDef<Boundary>[] = [
     {
       accessorKey: 'name',
-      header: 'Name',
+      header: ({ column }) => (
+        <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          className="p-0 hover:bg-transparent"
+        >
+          Name
+          <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      ),
       cell: ({ row }) => <div className="font-medium">{row.getValue('name')}</div>
     },
     {
       accessorKey: 'type',
-      header: 'Type',
-      cell: ({ row }) => <div>{row.getValue('type')}</div>
+      header: ({ column }) => (
+        <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          className="p-0 hover:bg-transparent"
+        >
+          Type
+          <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      ),
+      cell: ({ row }) => (
+        <div className="flex items-center">
+          {getTypeIcon(row.getValue('type'))}
+          <span>{row.getValue('type')}</span>
+        </div>
+      )
     },
     {
       accessorKey: 'description',
       header: 'Description',
-      cell: ({ row }) => <div className="truncate max-w-xs">{row.getValue('description') || '-'}</div>
+      cell: ({ row }) => {
+        const description = row.getValue('description') as string | null;
+        return (
+          <div className="max-w-xs">
+            {description ? (
+              <div className="line-clamp-2 whitespace-pre-wrap">{description}</div>
+            ) : (
+              <span className="text-muted-foreground">-</span>
+            )}
+          </div>
+        );
+      }
     },
     {
       accessorKey: 'included',
-      header: 'Included',
+      header: ({ column }) => (
+        <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          className="p-0 hover:bg-transparent"
+        >
+          In Scope
+          <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      ),
       cell: ({ row }) => (
-        <div className="flex justify-center">
+        <div className="flex items-center justify-left">
           {row.getValue('included') ? (
-            <CheckCircleIcon className="h-5 w-5 text-green-500" />
+            <div className="flex items-center text-green-600">
+              <CheckCircle className="h-5 w-5 mr-1.5" />
+              <span>Yes</span>
+            </div>
           ) : (
-            <XCircleIcon className="h-5 w-5 text-red-500" />
+            <div className="flex items-center text-red-600">
+              <XCircle className="h-5 w-5 mr-1.5" />
+              <span>No</span>
+            </div>
           )}
         </div>
       )
     },
     {
       id: 'actions',
-      header: 'Actions',
+      header: () => <div className="text-center">Actions</div>,
       cell: ({ row }) => {
         const boundary = row.original
         
         return (
-          <div className="flex items-center justify-end space-x-2">
+          <div className="flex items-center justify-center space-x-2">
             <Button 
               variant="ghost" 
               size="sm" 
               onClick={() => setEditingBoundary(boundary)}
               className="h-8 w-8 p-0"
             >
-              <PencilIcon className="h-4 w-4" />
+              <Pencil className="h-4 w-4" />
               <span className="sr-only">Edit</span>
             </Button>
             <Button 
@@ -96,7 +164,7 @@ export function BoundariesTable({ projectId, boundaries }: BoundariesTableProps)
               onClick={() => setDeletingBoundary(boundary)}
               className="h-8 w-8 p-0 text-red-500 hover:text-red-600 hover:bg-red-50"
             >
-              <TrashIcon className="h-4 w-4" />
+              <Trash className="h-4 w-4" />
               <span className="sr-only">Delete</span>
             </Button>
           </div>
@@ -148,28 +216,61 @@ export function BoundariesTable({ projectId, boundaries }: BoundariesTableProps)
   return (
     <div className="space-y-4">
       {/* Search and filter */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="relative max-w-sm">
-          <SearchIcon className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
           <Input
             placeholder="Search boundaries..."
             value={globalFilter ?? ''}
             onChange={(e) => setGlobalFilter(e.target.value)}
-            className="pl-8"
+            className="pl-8 w-full"
           />
         </div>
-        <div>
-          <select
-            value={(table.getColumn('type')?.getFilterValue() as string) ?? ''}
-            onChange={(e) => table.getColumn('type')?.setFilterValue(e.target.value || undefined)}
-            className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant={!table.getColumn('type')?.getFilterValue() ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => table.getColumn('type')?.setFilterValue(undefined)}
+            className="h-8"
           >
-            <option value="">All Types</option>
-            <option value="Department">Department</option>
-            <option value="System">System</option>
-            <option value="Location">Location</option>
-            <option value="Other">Other</option>
-          </select>
+            All
+          </Button>
+          <Button
+            variant={table.getColumn('type')?.getFilterValue() === 'Department' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => table.getColumn('type')?.setFilterValue('Department')}
+            className="h-8"
+          >
+            <Building2 className="h-4 w-4 mr-1" />
+            Departments
+          </Button>
+          <Button
+            variant={table.getColumn('type')?.getFilterValue() === 'System' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => table.getColumn('type')?.setFilterValue('System')}
+            className="h-8"
+          >
+            <Server className="h-4 w-4 mr-1" />
+            Systems
+          </Button>
+          <Button
+            variant={table.getColumn('type')?.getFilterValue() === 'Location' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => table.getColumn('type')?.setFilterValue('Location')}
+            className="h-8"
+          >
+            <Globe className="h-4 w-4 mr-1" />
+            Locations
+          </Button>
+          <Button
+            variant={table.getColumn('type')?.getFilterValue() === 'Other' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => table.getColumn('type')?.setFilterValue('Other')}
+            className="h-8"
+          >
+            <FileQuestion className="h-4 w-4 mr-1" />
+            Other
+          </Button>
         </div>
       </div>
 
@@ -234,7 +335,7 @@ export function BoundariesTable({ projectId, boundaries }: BoundariesTableProps)
       </div>
 
       {/* Pagination */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
         <div className="text-sm text-muted-foreground">
           Showing {table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1} to{' '}
           {Math.min(
@@ -250,15 +351,21 @@ export function BoundariesTable({ projectId, boundaries }: BoundariesTableProps)
             onClick={() => table.previousPage()}
             disabled={!table.getCanPreviousPage()}
           >
-            <ChevronLeftIcon className="h-4 w-4" />
+            <ChevronLeft className="h-4 w-4" />
+            <span className="sr-only">Previous page</span>
           </Button>
+          <div className="text-sm">
+            Page {table.getState().pagination.pageIndex + 1} of{' '}
+            {table.getPageCount()}
+          </div>
           <Button
             variant="outline"
             size="sm"
             onClick={() => table.nextPage()}
             disabled={!table.getCanNextPage()}
           >
-            <ChevronRightIcon className="h-4 w-4" />
+            <ChevronRight className="h-4 w-4" />
+            <span className="sr-only">Next page</span>
           </Button>
         </div>
       </div>
@@ -266,8 +373,8 @@ export function BoundariesTable({ projectId, boundaries }: BoundariesTableProps)
       {/* Edit Modal */}
       {editingBoundary && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-md p-4">
-            <BoundaryForm
+          <div className="w-full max-w-4xl p-4">
+            <MultiBoundaryForm
               projectId={projectId}
               boundary={editingBoundary}
               isEditing={true}

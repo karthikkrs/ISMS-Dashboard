@@ -54,33 +54,42 @@ export const createBoundary = async (
     notes?: string | null
   }
 ): Promise<Boundary> => {
-  // Get the current user
-  const { data: { user } } = await supabase.auth.getUser()
-  
-  if (!user) {
-    throw new Error('User not authenticated')
-  }
-  
-  // Add the user_id and project_id to the boundary
-  const boundaryWithIds = {
-    ...boundary,
-    project_id: projectId,
-    user_id: user.id
-  }
-  
-  const { data, error } = await supabase
-    .from('boundaries')
-    .insert(boundaryWithIds)
-    .select()
-    .single()
-  
-  if (error) {
-    console.error('Error creating boundary:', JSON.stringify(error, null, 2))
-    console.error('Boundary data attempted to save:', JSON.stringify(boundaryWithIds, null, 2))
+  try {
+    // Get the current user
+    const { data: { user } } = await supabase.auth.getUser()
+    
+    if (!user) {
+      throw new Error('User not authenticated')
+    }
+    
+    // Clean up the description field to ensure it's properly handled
+    const cleanedDescription = boundary.description || null
+    
+    // Add the user_id and project_id to the boundary
+    const boundaryWithIds = {
+      ...boundary,
+      description: cleanedDescription,
+      project_id: projectId,
+      user_id: user.id
+    }
+    
+    const { data, error } = await supabase
+      .from('boundaries')
+      .insert(boundaryWithIds)
+      .select()
+      .single()
+    
+    if (error) {
+      console.error('Error creating boundary:', JSON.stringify(error, null, 2))
+      console.error('Boundary data attempted to save:', JSON.stringify(boundaryWithIds, null, 2))
+      throw error
+    }
+    
+    return data as Boundary
+  } catch (error) {
+    console.error('Error creating boundary:', error)
     throw error
   }
-  
-  return data as Boundary
 }
 
 // Update a boundary
@@ -88,41 +97,52 @@ export const updateBoundary = async (
   id: string,
   boundary: Partial<Boundary>
 ): Promise<Boundary> => {
-  // Get the current user
-  const { data: { user } } = await supabase.auth.getUser()
-  
-  if (!user) {
-    throw new Error('User not authenticated')
-  }
-  
-  // First check if the boundary belongs to the current user
-  const { data: existingBoundary, error: fetchError } = await supabase
-    .from('boundaries')
-    .select('*')
-    .eq('id', id)
-    .eq('user_id', user.id)
-    .single()
-  
-  if (fetchError) {
-    console.error('Error fetching boundary for update:', fetchError)
-    throw new Error('Boundary not found or you do not have permission to update it')
-  }
-  
-  // Now update the boundary
-  const { data, error } = await supabase
-    .from('boundaries')
-    .update(boundary)
-    .eq('id', id)
-    .select()
-    .single()
-  
-  if (error) {
-    console.error('Error updating boundary:', JSON.stringify(error, null, 2))
-    console.error('Boundary data attempted to update:', JSON.stringify(boundary, null, 2))
+  try {
+    // Get the current user
+    const { data: { user } } = await supabase.auth.getUser()
+    
+    if (!user) {
+      throw new Error('User not authenticated')
+    }
+    
+    // First check if the boundary belongs to the current user
+    const { data: existingBoundary, error: fetchError } = await supabase
+      .from('boundaries')
+      .select('*')
+      .eq('id', id)
+      .eq('user_id', user.id)
+      .single()
+    
+    if (fetchError) {
+      console.error('Error fetching boundary for update:', fetchError)
+      throw new Error('Boundary not found or you do not have permission to update it')
+    }
+    
+    // Clean up the description field to ensure it's properly handled
+    const updatedBoundary = {
+      ...boundary,
+      description: boundary.description || null
+    }
+    
+    // Now update the boundary
+    const { data, error } = await supabase
+      .from('boundaries')
+      .update(updatedBoundary)
+      .eq('id', id)
+      .select()
+      .single()
+    
+    if (error) {
+      console.error('Error updating boundary:', JSON.stringify(error, null, 2))
+      console.error('Boundary data attempted to update:', JSON.stringify(updatedBoundary, null, 2))
+      throw error
+    }
+    
+    return data as Boundary
+  } catch (error) {
+    console.error('Error updating boundary:', error)
     throw error
   }
-  
-  return data as Boundary
 }
 
 // Delete a boundary

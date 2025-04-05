@@ -16,7 +16,6 @@ const stakeholderSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
   role: z.string().optional(),
   email: z.string().email('Invalid email address').optional().or(z.literal('')),
-  phone: z.string().optional(),
   responsibilities: z.string().optional()
 })
 
@@ -45,7 +44,6 @@ export function StakeholderForm({
       name: stakeholder?.name || '',
       role: stakeholder?.role || '',
       email: stakeholder?.email || '',
-      phone: stakeholder?.phone || '',
       responsibilities: stakeholder?.responsibilities || ''
     }
   })
@@ -132,22 +130,6 @@ export function StakeholderForm({
           />
           {errors.email && (
             <p className="text-red-500 text-sm">{errors.email.message}</p>
-          )}
-        </div>
-        
-        {/* Phone Field */}
-        <div className="space-y-2">
-          <label htmlFor="phone" className="block text-sm font-medium">
-            Phone
-          </label>
-          <Input
-            id="phone"
-            placeholder="Enter stakeholder phone"
-            {...register('phone')}
-            className={errors.phone ? 'border-red-500' : ''}
-          />
-          {errors.phone && (
-            <p className="text-red-500 text-sm">{errors.phone.message}</p>
           )}
         </div>
         

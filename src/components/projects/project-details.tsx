@@ -138,16 +138,6 @@ export function ProjectDetails({ project }: ProjectDetailsProps) {
               
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-sm font-medium">Statement of Work</span>
-                  <span className="text-xs text-gray-500">Not Started</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div className="bg-gray-400 h-2 rounded-full w-0"></div>
-                </div>
-              </div>
-              
-              <div>
-                <div className="flex items-center justify-between mb-1">
                   <span className="text-sm font-medium">Controls</span>
                   <span className="text-xs text-gray-500">Not Started</span>
                 </div>

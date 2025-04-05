@@ -7,7 +7,7 @@ import { Stakeholder } from '@/types'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { StakeholderForm } from './stakeholder-form'
-import { Loader2, Pencil, Trash, Mail, Phone } from 'lucide-react'
+import { Loader2, Pencil, Trash, Mail } from 'lucide-react'
 import {
   Table,
   TableBody,
@@ -104,36 +104,22 @@ export function StakeholdersTable({ projectId }: StakeholdersTableProps) {
       )}
 
       {/* Stakeholders Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-center">
-              <p className="text-lg font-medium">Total Stakeholders</p>
-              <p className="text-3xl font-bold">{stakeholders.length}</p>
+      <Card className="w-full bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-100">
+        <CardContent className="py-8">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-xl font-semibold text-gray-800">Stakeholder Overview</h3>
+              <p className="text-gray-500 mt-1">Key participants in your ISMS implementation</p>
             </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-center">
-              <p className="text-lg font-medium">With Contact Info</p>
-              <p className="text-3xl font-bold text-blue-600">
-                {stakeholders.filter(s => s.email || s.phone).length}
-              </p>
+            <div className="flex items-center bg-white px-6 py-4 rounded-lg shadow-sm border border-blue-100">
+              <div className="text-center">
+                <p className="text-lg font-medium text-gray-600">Total Stakeholders</p>
+                <p className="text-4xl font-bold text-blue-600">{stakeholders.length}</p>
+              </div>
             </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-center">
-              <p className="text-lg font-medium">With Responsibilities</p>
-              <p className="text-3xl font-bold text-green-600">
-                {stakeholders.filter(s => s.responsibilities).length}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Stakeholders Table */}
       <div className="rounded-md border">
@@ -154,19 +140,14 @@ export function StakeholdersTable({ projectId }: StakeholdersTableProps) {
                 <TableCell>{stakeholder.role || '-'}</TableCell>
                 <TableCell>
                   <div className="flex flex-col space-y-1">
-                    {stakeholder.email && (
+                    {stakeholder.email ? (
                       <div className="flex items-center text-sm">
                         <Mail className="h-4 w-4 mr-1 text-gray-500" />
                         <span>{stakeholder.email}</span>
                       </div>
+                    ) : (
+                      '-'
                     )}
-                    {stakeholder.phone && (
-                      <div className="flex items-center text-sm">
-                        <Phone className="h-4 w-4 mr-1 text-gray-500" />
-                        <span>{stakeholder.phone}</span>
-                      </div>
-                    )}
-                    {!stakeholder.email && !stakeholder.phone && '-'}
                   </div>
                 </TableCell>
                 <TableCell className="max-w-[300px] truncate">
