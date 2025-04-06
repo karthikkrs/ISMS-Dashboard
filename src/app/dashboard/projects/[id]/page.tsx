@@ -66,5 +66,5 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
   }
 
   // Render the client component with the project data
-  return <ProjectPage project={project} id={id} />
+  return <ProjectPage project={project} id={id}><></></ProjectPage> // Pass empty fragment as children
 }

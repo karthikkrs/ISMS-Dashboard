@@ -1,5 +1,6 @@
 'use client'
 
+import React from 'react' // Import React
 import { Project } from '@/types'
 import Link from 'next/link'
 import { EditIcon, ArrowLeftIcon } from 'lucide-react'
@@ -10,9 +11,10 @@ import { ProjectDetails, ProjectHeader } from '@/components/projects/project-det
 interface ProjectPageProps {
   project: Project
   id: string
+  children: React.ReactNode // Add children prop
 }
 
-export function ProjectPage({ project, id }: ProjectPageProps) {
+export function ProjectPage({ project, id, children }: ProjectPageProps) { // Destructure children
   return (
     <div className="container mx-auto py-10">
       <div className="mb-6">
@@ -36,7 +38,13 @@ export function ProjectPage({ project, id }: ProjectPageProps) {
       
       <ProjectNavigation projectId={id} />
       
-      <ProjectDetails project={project} />
+      {/* Render children here */}
+      <div className="mt-6"> 
+        {children}
+      </div>
+      
+      {/* ProjectDetails might be redundant if children handle content */}
+      {/* <ProjectDetails project={project} /> */} 
     </div>
   )
 }

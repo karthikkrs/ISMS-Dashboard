@@ -13,7 +13,10 @@ export type BoundaryControl = {
   is_applicable: boolean
   reason_inclusion?: string | null
   reason_exclusion?: string | null
-  status?: string | null
+  status?: string | null // SOA status
+  compliance_status?: 'Compliant' | 'Partially Compliant' | 'Non Compliant' | 'Not Assessed' | null // New
+  assessment_date?: string | null // New
+  assessment_notes?: string | null // New
   user_id: string
   created_at: string
   updated_at: string
@@ -50,6 +53,53 @@ export const getBoundaryControls = async (boundaryId: string): Promise<BoundaryC
     throw error
   }
 }
+
+// Get all boundary controls for a project with full control details
+export const getProjectBoundaryControlsWithDetails = async (projectId: string): Promise<any[]> => {
+  try {
+    console.log('Fetching boundary controls with details for project:', projectId);
+
+    // 1. Get all boundary IDs for the project
+    const { data: boundaries, error: boundariesError } = await supabase
+      .from('boundaries')
+      .select('id')
+      .eq('project_id', projectId);
+
+    if (boundariesError) {
+      console.error('Error fetching boundaries for project:', JSON.stringify(boundariesError, null, 2));
+      throw new Error(`Failed to fetch boundaries: ${boundariesError.message}`);
+    }
+
+    if (!boundaries || boundaries.length === 0) {
+      console.log('No boundaries found for project:', projectId);
+      return []; // No boundaries means no boundary controls
+    }
+
+    const boundaryIds = boundaries.map(b => b.id);
+    console.log('Found boundary IDs:', boundaryIds);
+
+    // 2. Fetch boundary controls associated with these boundaries, joining with controls and boundaries tables
+    const { data, error } = await supabase
+      .from('boundary_controls')
+      .select(`
+        *,
+        controls:control_id (id, reference, description, domain), 
+        boundaries:boundary_id (id, name) 
+      `)
+      .in('boundary_id', boundaryIds); // Filter by the project's boundary IDs
+
+    if (error) {
+      console.error('Error fetching project boundary controls with details:', JSON.stringify(error, null, 2));
+      throw new Error(`Failed to fetch project boundary controls with details: ${error.message}`);
+    }
+
+    console.log(`Found ${data?.length || 0} boundary controls with details for project ${projectId}`);
+    return data || [];
+  } catch (error) {
+    console.error('Error in getProjectBoundaryControlsWithDetails:', error);
+    throw error;
+  }
+};
 
 // Get all boundary controls for a project
 export const getProjectBoundaryControls = async (projectId: string): Promise<BoundaryControl[]> => {

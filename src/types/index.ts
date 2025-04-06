@@ -57,14 +57,19 @@ export type BoundaryControl = {
   is_applicable: boolean;
   reason_inclusion?: string | null;
   reason_exclusion?: string | null;
-  status?: string | null;
+  status?: string | null; // SOA status (e.g., Implemented)
+  compliance_status?: 'Compliant' | 'Partially Compliant' | 'Non Compliant' | 'Not Assessed' | null; // New compliance status
+  assessment_date?: string | null; // New assessment date
+  assessment_notes?: string | null; // New assessment notes
   user_id: string;
   created_at: string;
   updated_at: string;
 };
 
+// Type for BoundaryControl joined with Control and Boundary details
 export type BoundaryControlWithDetails = BoundaryControl & {
-  controls: Control;
+  controls: Control; // Control type already includes domain
+  boundaries: Pick<Boundary, 'id' | 'name'> | null; // Add joined boundary name
 };
 
 // Objective types for Module 4
@@ -92,4 +97,33 @@ export type Stakeholder = {
   user_id: string;
   created_at: string;
   updated_at?: string;
+};
+
+// Evidence types
+export type Evidence = {
+  id: string;
+  boundary_control_id: string;
+  title: string;
+  description?: string | null;
+  file_path?: string | null;
+  file_name?: string | null;
+  file_type?: string | null;
+  uploaded_by: string; // user_id
+  created_at: string;
+  updated_at: string;
+};
+
+// Gap types
+export type GapSeverity = 'Critical' | 'High' | 'Medium' | 'Low';
+export type GapStatus = 'Identified' | 'In Review' | 'Confirmed' | 'Remediated' | 'Closed';
+
+export type Gap = {
+  id: string;
+  boundary_control_id: string;
+  description: string;
+  severity: GapSeverity;
+  status: GapStatus;
+  identified_by: string; // user_id
+  identified_at: string;
+  updated_at: string;
 };

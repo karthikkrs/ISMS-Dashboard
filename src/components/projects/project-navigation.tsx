@@ -11,7 +11,8 @@ import {
   FileTextIcon, 
   ShieldIcon, 
   CheckSquareIcon,
-  BarChart2Icon
+  BarChart2Icon,
+  FileSearchIcon // Import new icon
 } from 'lucide-react'
 import { getBoundaries } from '@/services/boundary-service'
 import { getStakeholders } from '@/services/stakeholder-service'
@@ -81,6 +82,12 @@ export function ProjectNavigation({ projectId }: ProjectNavigationProps) {
       href: `/dashboard/projects/${projectId}/soa`,
       icon: CheckSquareIcon,
       completed: soaCompleted
+    },
+    { // Add new navigation item
+      name: 'Evidence & Gaps',
+      href: `/dashboard/projects/${projectId}/evidence-gaps`,
+      icon: FileSearchIcon, 
+      completed: false // Placeholder, logic to determine completion needed later
     },
     {
       name: 'Reports',
