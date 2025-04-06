@@ -40,6 +40,33 @@ export type Boundary = {
   updated_at: string;
 };
 
+// Control types
+export type Control = {
+  id: string;
+  reference: string;
+  description: string;
+  domain: string; // Added domain field
+  created_at: string;
+};
+
+// Boundary Control types
+export type BoundaryControl = {
+  id: string;
+  boundary_id: string;
+  control_id: string;
+  is_applicable: boolean;
+  reason_inclusion?: string | null;
+  reason_exclusion?: string | null;
+  status?: string | null;
+  user_id: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type BoundaryControlWithDetails = BoundaryControl & {
+  controls: Control;
+};
+
 // Objective types for Module 4
 export type ObjectivePriority = 'High' | 'Medium' | 'Low';
 

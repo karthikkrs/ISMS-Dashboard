@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import { getBoundaries } from '@/services/boundary-service'
 import { getStakeholders } from '@/services/stakeholder-service'
+import { getProjectBoundaryControls } from '@/services/boundary-control-service'
 import { useQuery } from '@tanstack/react-query'
 
 interface ProjectNavigationProps {
@@ -42,9 +43,19 @@ export function ProjectNavigation({ projectId }: ProjectNavigationProps) {
     refetchOnWindowFocus: false
   })
   
+  // Fetch boundary controls data to check if SoA is completed
+  const { data: boundaryControls = [] } = useQuery({
+    queryKey: ['projectBoundaryControls', projectId],
+    queryFn: () => getProjectBoundaryControls(projectId),
+    // Don't show loading or error states in the navigation
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    refetchOnWindowFocus: false
+  })
+  
   // Determine if sections are completed
   const boundariesCompleted = boundaries.length > 0
   const stakeholdersCompleted = stakeholders.length > 0
+  const soaCompleted = boundaryControls.length > 0
   
   const navItems = [
     {
@@ -66,16 +77,10 @@ export function ProjectNavigation({ projectId }: ProjectNavigationProps) {
       completed: stakeholdersCompleted
     },
     {
-      name: 'Controls',
-      href: `/dashboard/projects/${projectId}/controls`,
-      icon: ShieldIcon,
-      completed: false
-    },
-    {
       name: 'Statement of Applicability',
       href: `/dashboard/projects/${projectId}/soa`,
       icon: CheckSquareIcon,
-      completed: false
+      completed: soaCompleted
     },
     {
       name: 'Reports',
