@@ -7,18 +7,38 @@ export type Project = {
   user_id: string;
   created_at: string;
   updated_at: string;
+  status: number; // Add integer status field from DB (0: Not Started, 1: In Progress, 2: Completed, 3: On Hold)
+  // Phase completion timestamps
+  boundaries_completed_at?: string | null;
+  stakeholders_completed_at?: string | null;
+  soa_completed_at?: string | null;
+  soa_completed_at_completed_at?: string | null; // Add the expected column
+  evidence_gaps_completed_at?: string | null;
+  objectives_completed_at?: string | null; // Keep for now, might be used elsewhere
+  questionnaire_completed_at?: string | null; // Add questionnaire completion timestamp
 };
 
-export type ProjectStatus = 'Not Started' | 'In Progress' | 'Completed' | 'On Hold';
+// Keep string status type for display/logic - Removed 'Not Started'
+export type ProjectStatus = 'In Progress' | 'Completed' | 'On Hold';
 
-export type ProjectWithStatus = Project & {
-  status: ProjectStatus;
-  completion_percentage: number;
+// This type now represents the project data *after* processing in the service
+// Ensure all relevant fields from Project are included, especially completion timestamps
+export type ProjectWithStatus = Omit<Project, 'status' | 'completion_percentage'> & {
+  status: ProjectStatus; // Use the derived string status
+  // Explicitly include completion timestamps if needed by components using this type
+  boundaries_completed_at?: string | null;
+  stakeholders_completed_at?: string | null;
+  soa_completed_at?: string | null;
+  soa_completed_at_completed_at?: string | null;
+  evidence_gaps_completed_at?: string | null;
+  objectives_completed_at?: string | null;
+  questionnaire_completed_at?: string | null;
 };
+
 
 export type ProjectStats = {
   total: number;
-  not_started: number;
+  // Removed not_started
   in_progress: number;
   completed: number;
   on_hold: number;
@@ -27,18 +47,7 @@ export type ProjectStats = {
 // Boundary types for Module 3
 export type BoundaryType = 'Department' | 'System' | 'Location' | 'Other';
 
-export type Boundary = {
-  id: string;
-  project_id: string;
-  name: string;
-  type: BoundaryType;
-  description: string | null;
-  included: boolean;
-  notes: string | null;
-  user_id: string;
-  created_at: string;
-  updated_at: string;
-};
+// Removed manual Boundary type definition - Use Tables<'boundaries'> from database.types.ts instead
 
 // Control types
 export type Control = {
@@ -66,25 +75,15 @@ export type BoundaryControl = {
   updated_at: string;
 };
 
+import { Tables } from './database.types'; // Import Tables helper
+
 // Type for BoundaryControl joined with Control and Boundary details
 export type BoundaryControlWithDetails = BoundaryControl & {
   controls: Control; // Control type already includes domain
-  boundaries: Pick<Boundary, 'id' | 'name'> | null; // Add joined boundary name
+  boundaries: Pick<Tables<'boundaries'>, 'id' | 'name'> | null; // Use generated type for Pick
 };
 
-// Objective types for Module 4
-export type ObjectivePriority = 'High' | 'Medium' | 'Low';
-
-export type Objective = {
-  id: string;
-  project_id: string;
-  statement: string;
-  priority: ObjectivePriority;
-  order?: number;
-  user_id: string;
-  created_at: string;
-  updated_at?: string;
-};
+// Removed Objective types
 
 // Stakeholder types for Module 5
 export type Stakeholder = {
@@ -102,6 +101,8 @@ export type Stakeholder = {
 // Evidence types
 export type Evidence = {
   id: string;
+  project_id: string; // Add project_id
+  control_id: string; // Add control_id
   boundary_control_id: string;
   title: string;
   description?: string | null;
@@ -119,7 +120,10 @@ export type GapStatus = 'Identified' | 'In Review' | 'Confirmed' | 'Remediated' 
 
 export type Gap = {
   id: string;
+  project_id: string; // Add project_id
+  control_id: string; // Add control_id
   boundary_control_id: string;
+  title: string; // Add title field
   description: string;
   severity: GapSeverity;
   status: GapStatus;

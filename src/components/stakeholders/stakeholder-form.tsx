@@ -1,15 +1,27 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react' // Added useEffect
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'; // Import query/mutation hooks
 import { Button } from '@/components/ui/button'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"; // Import AlertDialog components
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Loader2, X } from 'lucide-react'
 import { createStakeholder, updateStakeholder } from '@/services/stakeholder-service'
-import { Stakeholder } from '@/types'
+import { getProjectById, unmarkProjectPhaseComplete } from '@/services/project-service'; // Import project service functions
+import { Stakeholder, ProjectWithStatus } from '@/types' // Import Project type
 
 // Define the form schema with Zod
 const stakeholderSchema = z.object({
@@ -34,11 +46,22 @@ export function StakeholderForm({
   isEditing = false,
   onSuccess 
 }: StakeholderFormProps) {
+  const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [formData, setFormData] = useState<StakeholderFormValues | null>(null);
+
+  // Fetch project data to check completion status
+  const { data: project } = useQuery<ProjectWithStatus | null>({
+    queryKey: ['project', projectId],
+    queryFn: () => getProjectById(projectId),
+    enabled: !!projectId,
+    staleTime: Infinity,
+  });
   
   // Initialize the form with default values or existing stakeholder data
-  const { register, handleSubmit, formState: { errors } } = useForm<StakeholderFormValues>({
+  const { register, handleSubmit, formState: { errors }, reset } = useForm<StakeholderFormValues>({ // Added reset
     resolver: zodResolver(stakeholderSchema),
     defaultValues: {
       name: stakeholder?.name || '',
@@ -48,31 +71,49 @@ export function StakeholderForm({
     }
   })
   
-  // Handle form submission
-  const onSubmit = async (data: StakeholderFormValues) => {
+  // Function to actually perform the stakeholder creation/update and phase unmarking
+  const performSubmit = async (data: StakeholderFormValues) => {
     setIsSubmitting(true)
     setError(null)
-    
     try {
+      const wasPhaseComplete = !!project?.stakeholders_completed_at;
+
       if (isEditing && stakeholder) {
-        // Update existing stakeholder
         await updateStakeholder(stakeholder.id, data)
       } else {
-        // Create new stakeholder
         await createStakeholder(projectId, data)
       }
+
+      // Unmark Phase if it was previously complete
+      if (wasPhaseComplete) {
+        await unmarkProjectPhaseComplete(projectId, 'stakeholders_completed_at');
+        queryClient.invalidateQueries({ queryKey: ['project', projectId] });
+        queryClient.invalidateQueries({ queryKey: ['projects'] });
+      }
       
-      // Call the success callback
-      onSuccess()
+      onSuccess() // Call the success callback
     } catch (err) {
       console.error('Error saving stakeholder:', err)
       setError('Failed to save stakeholder. Please try again.')
     } finally {
       setIsSubmitting(false)
+      setShowConfirmation(false);
+      setFormData(null);
+    }
+  }
+
+  // Initial submit handler: checks phase status and shows confirmation if needed
+  const onSubmit = (data: StakeholderFormValues) => {
+    if (project?.stakeholders_completed_at) {
+      setFormData(data);
+      setShowConfirmation(true);
+    } else {
+      performSubmit(data);
     }
   }
   
   return (
+    <>
     <div className="bg-white rounded-lg shadow-lg p-6">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-bold">
@@ -168,6 +209,26 @@ export function StakeholderForm({
           </Button>
         </div>
       </form>
+
+      {/* Confirmation Dialog */}
+      <AlertDialog open={showConfirmation} onOpenChange={setShowConfirmation}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Modification</AlertDialogTitle>
+            <AlertDialogDescription>
+              The "Stakeholders" phase is marked as complete. {isEditing ? 'Updating this stakeholder' : 'Adding a new stakeholder'} will reset this status. Do you want to proceed?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setFormData(null)} disabled={isSubmitting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => formData && performSubmit(formData)} disabled={isSubmitting}>
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Confirm & {isEditing ? 'Update' : 'Save'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
+    </>
   )
 }

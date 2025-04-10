@@ -3,9 +3,11 @@
 import { useQuery } from '@tanstack/react-query'
 import { getProjects, getProjectStats } from '@/services/project-service'
 import { ProjectWithStatus, ProjectStatus } from '@/types'
-import { ProjectCard } from './project-card'
-import { ProjectStatsCards, ProjectStatsChart } from './project-stats'
+// Removed ProjectCard import
+import { ProjectStatsCards } from './project-stats'
 import { ProjectsFilter } from './projects-filter'
+// import { ProjectsTable } from './projects-table' // Remove table import
+import { ProjectCard } from './project-card' // Import ProjectCard
 import { Button } from '@/components/ui/button'
 import { PlusIcon, Loader2Icon } from 'lucide-react'
 import Link from 'next/link'
@@ -121,7 +123,7 @@ export function ProjectsDashboard() {
       {stats && (
         <>
           <ProjectStatsCards stats={stats} />
-          <ProjectStatsChart stats={stats} />
+          {/* ProjectStatsChart removed as per request */}
         </>
       )}
 
@@ -149,8 +151,9 @@ export function ProjectsDashboard() {
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredProjects.map(project => (
+        // Use a responsive grid for ProjectCards
+        <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {filteredProjects.map((project) => (
             <ProjectCard key={project.id} project={project} />
           ))}
         </div>

@@ -12,8 +12,21 @@ import {
   ColumnFiltersState,
   flexRender
 } from '@tanstack/react-table'
-import { Boundary, BoundaryType } from '@/types'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'; // Import query/mutation hooks
+import { BoundaryType, ProjectWithStatus } from '@/types' // Remove Boundary import
+import { Tables } from '@/types/database.types'; // Import Tables helper
+import { getProjectById, unmarkProjectPhaseComplete } from '@/services/project-service'; // Import project service functions
 import { Button } from '@/components/ui/button'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"; // Import AlertDialog components
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { 
@@ -28,15 +41,18 @@ import {
   Building2,
   Globe,
   Server,
-  FileQuestion
+  FileQuestion,
+  Loader2 // Added Loader2
 } from 'lucide-react'
 import { MultiBoundaryForm } from './multi-boundary-form'
 import { deleteBoundary } from '@/services/boundary-service'
 import { useRouter } from 'next/navigation'
 
+type Boundary = Tables<'boundaries'>; // Define Boundary using Tables helper
+
 interface BoundariesTableProps {
   projectId: string
-  boundaries: Boundary[]
+  boundaries: Boundary[] // Use the locally defined Boundary type
 }
 
 export function BoundariesTable({ projectId, boundaries }: BoundariesTableProps) {
@@ -45,8 +61,19 @@ export function BoundariesTable({ projectId, boundaries }: BoundariesTableProps)
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [globalFilter, setGlobalFilter] = useState('')
   const [editingBoundary, setEditingBoundary] = useState<Boundary | null>(null)
-  const [deletingBoundary, setDeletingBoundary] = useState<Boundary | null>(null)
+  // Replace deletingBoundary state with state for AlertDialog
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
+  const [boundaryToDelete, setBoundaryToDelete] = useState<Boundary | null>(null);
   const [isDeleting, setIsDeleting] = useState(false)
+  const queryClient = useQueryClient();
+
+  // Fetch project data to check completion status
+  const { data: project } = useQuery<ProjectWithStatus | null>({
+    queryKey: ['project', projectId],
+    queryFn: () => getProjectById(projectId),
+    enabled: !!projectId,
+    staleTime: Infinity,
+  });
 
   // Get type icon based on boundary type
   const getTypeIcon = (type: BoundaryType) => {
@@ -113,6 +140,47 @@ export function BoundariesTable({ projectId, boundaries }: BoundariesTableProps)
         );
       }
     },
+    // Add Asset Value Qualitative Column
+    {
+      accessorKey: 'asset_value_qualitative',
+      header: ({ column }) => (
+        <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          className="p-0 hover:bg-transparent"
+        >
+          Asset Value (Qual)
+          <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      ),
+      cell: ({ row }) => {
+        const value = row.getValue('asset_value_qualitative') as string | null;
+        return value ? <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+          value === 'High' ? 'bg-red-100 text-red-700' : 
+          value === 'Medium' ? 'bg-yellow-100 text-yellow-700' : 
+          value === 'Low' ? 'bg-green-100 text-green-700' : ''
+        }`}>{value}</span> : <span className="text-muted-foreground">-</span>;
+      }
+    },
+    // Add Asset Value Quantitative Column
+    {
+      accessorKey: 'asset_value_quantitative',
+      header: ({ column }) => (
+        <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          className="p-0 hover:bg-transparent"
+        >
+          Asset Value (Quant)
+          <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      ),
+      cell: ({ row }) => {
+        const value = row.getValue('asset_value_quantitative') as number | null;
+        // Optional: Format as currency if needed
+        return value !== null ? <span>{value.toLocaleString()}</span> : <span className="text-muted-foreground">-</span>;
+      }
+    },
     {
       accessorKey: 'included',
       header: ({ column }) => (
@@ -161,7 +229,8 @@ export function BoundariesTable({ projectId, boundaries }: BoundariesTableProps)
             <Button 
               variant="ghost" 
               size="sm" 
-              onClick={() => setDeletingBoundary(boundary)}
+              onClick={() => handleDeleteClick(boundary)} // Use new handler
+              disabled={isDeleting} // Disable if any delete is in progress
               className="h-8 w-8 p-0 text-red-500 hover:text-red-600 hover:bg-red-50"
             >
               <Trash className="h-4 w-4" />
@@ -191,22 +260,45 @@ export function BoundariesTable({ projectId, boundaries }: BoundariesTableProps)
     getFilteredRowModel: getFilteredRowModel()
   })
 
-  // Handle boundary deletion
-  const handleDelete = async () => {
-    if (!deletingBoundary) return
-    
-    setIsDeleting(true)
-    
+  // Function to actually perform the deletion and phase unmarking
+  const performDelete = async (boundary: Boundary) => {
+    if (!boundary) return;
+    setIsDeleting(true);
     try {
-      await deleteBoundary(deletingBoundary.id)
-      setDeletingBoundary(null)
-      router.refresh()
+      // 1. Delete Boundary
+      await deleteBoundary(boundary.id);
+
+      // 2. Unmark Phase (only if it was previously complete)
+      if (project?.boundaries_completed_at) {
+        await unmarkProjectPhaseComplete(projectId, 'boundaries_completed_at');
+        queryClient.invalidateQueries({ queryKey: ['project', projectId] });
+        queryClient.invalidateQueries({ queryKey: ['projects'] });
+      }
+
+      router.refresh(); // Or use queryClient.invalidateQueries(['boundaries', projectId]);
+      // TODO: Show success toast
     } catch (error) {
-      console.error('Error deleting boundary:', error)
+      console.error('Error deleting boundary:', error);
+      // TODO: Show error toast
     } finally {
-      setIsDeleting(false)
+      setIsDeleting(false);
+      setShowDeleteConfirmation(false);
+      setBoundaryToDelete(null);
     }
-  }
+  };
+
+  // Initial delete handler: checks phase status and shows confirmation if needed
+  const handleDeleteClick = (boundary: Boundary) => {
+    if (project?.boundaries_completed_at) {
+      setBoundaryToDelete(boundary);
+      setShowDeleteConfirmation(true);
+    } else {
+      // Use standard browser confirm if phase not complete
+      if (confirm('Are you sure you want to delete this boundary? This action cannot be undone.')) {
+         performDelete(boundary);
+      }
+    }
+  };
 
   // Handle form close
   const handleFormClose = () => {
@@ -384,41 +476,24 @@ export function BoundariesTable({ projectId, boundaries }: BoundariesTableProps)
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
-      {deletingBoundary && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-md p-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Confirm Deletion</CardTitle>
-                <CardDescription>
-                  Are you sure you want to delete this boundary? This action cannot be undone.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="font-medium">{deletingBoundary.name}</p>
-                <p className="text-sm text-muted-foreground">{deletingBoundary.type}</p>
-              </CardContent>
-              <CardFooter className="flex justify-between">
-                <Button 
-                  variant="outline" 
-                  onClick={() => setDeletingBoundary(null)}
-                  disabled={isDeleting}
-                >
-                  Cancel
-                </Button>
-                <Button 
-                  variant="destructive" 
-                  onClick={handleDelete}
-                  disabled={isDeleting}
-                >
-                  {isDeleting ? 'Deleting...' : 'Delete'}
-                </Button>
-              </CardFooter>
-            </Card>
-          </div>
-        </div>
-      )}
+      {/* Delete Confirmation Dialog using Shadcn AlertDialog */}
+      <AlertDialog open={showDeleteConfirmation} onOpenChange={setShowDeleteConfirmation}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Modification</AlertDialogTitle>
+            <AlertDialogDescription>
+              The "Boundaries" phase is marked as complete. Deleting this boundary will reset the phase status. Are you sure you want to delete "{boundaryToDelete?.name}"?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setBoundaryToDelete(null)} disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => boundaryToDelete && performDelete(boundaryToDelete)} disabled={isDeleting}>
+              {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Confirm & Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

@@ -1,12 +1,25 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useForm, SubmitHandler } from 'react-hook-form';
+import { useForm, SubmitHandler, Controller } from 'react-hook-form'; // Import Controller
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'; // Import query/mutation hooks
 import { updateBoundaryControl } from '@/services/boundary-control-service';
-import { BoundaryControl } from '@/types';
+import { getProjectById, unmarkProjectPhaseComplete } from '@/services/project-service'; // Import project service functions
+import { getBoundaryById } from '@/services/boundary-service'; // Import getBoundaryById
+import { BoundaryControl, ProjectWithStatus, Boundary } from '@/types'; // Import Project type & Boundary
 import { Button } from '@/components/ui/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"; // Import AlertDialog components
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -29,12 +42,32 @@ type AssessmentFormData = z.infer<typeof assessmentSchema>;
 
 interface ComplianceAssessmentProps {
   boundaryControl: BoundaryControl; // Pass the full boundary control object
-  onAssessmentSaved: () => void; // Callback after saving
+  onAssessmentSaved: () => void;
 }
 
 export function ComplianceAssessment({ boundaryControl, onAssessmentSaved }: ComplianceAssessmentProps) {
+  const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [formData, setFormData] = useState<AssessmentFormData | null>(null);
+
+  // Fetch boundary data to get project_id
+  const { data: boundary } = useQuery<Boundary | null>({
+    queryKey: ['boundary', boundaryControl.boundary_id],
+    queryFn: () => getBoundaryById(boundaryControl.boundary_id), // Use service function
+    enabled: !!boundaryControl.boundary_id,
+    staleTime: Infinity,
+  });
+  const projectId = boundary?.project_id; // Access project_id directly
+
+  // Fetch project data to check completion status
+  const { data: project } = useQuery<ProjectWithStatus | null>({
+    queryKey: ['project', projectId],
+    queryFn: () => getProjectById(projectId!), // Use non-null assertion as enabled depends on it
+    enabled: !!projectId,
+    staleTime: Infinity,
+  });
 
   const { register, handleSubmit, reset, control, setValue, formState: { errors } } = useForm<AssessmentFormData>({
     resolver: zodResolver(assessmentSchema),
@@ -55,18 +88,28 @@ export function ComplianceAssessment({ boundaryControl, onAssessmentSaved }: Com
     });
   }, [boundaryControl, reset]);
 
-
-  const onSubmit: SubmitHandler<AssessmentFormData> = async (data) => {
+  // Function to actually perform the assessment update and phase unmarking
+  const performSubmit = async (data: AssessmentFormData) => {
     setIsSubmitting(true);
     setError(null);
     try {
+      const wasPhaseComplete = !!project?.evidence_gaps_completed_at;
+
+      // 1. Update Assessment
       await updateBoundaryControl(boundaryControl.id, {
         compliance_status: data.compliance_status,
-        // Convert date string back to ISO string or null
         assessment_date: data.assessment_date ? new Date(data.assessment_date).toISOString() : null,
         assessment_notes: data.assessment_notes,
       });
-      onAssessmentSaved(); // Trigger refetch/update in parent
+
+      // 2. Unmark Phase if it was previously complete
+      if (wasPhaseComplete && projectId) {
+        await unmarkProjectPhaseComplete(projectId, 'evidence_gaps_completed_at');
+        queryClient.invalidateQueries({ queryKey: ['project', projectId] });
+        queryClient.invalidateQueries({ queryKey: ['projects'] });
+      }
+
+      onAssessmentSaved();
       // TODO: Show success toast
     } catch (err: any) {
       console.error("Failed to save assessment:", err);
@@ -74,6 +117,18 @@ export function ComplianceAssessment({ boundaryControl, onAssessmentSaved }: Com
       // TODO: Show error toast
     } finally {
       setIsSubmitting(false);
+      setShowConfirmation(false);
+      setFormData(null);
+    }
+  };
+
+  // Initial submit handler: checks phase status and shows confirmation if needed
+  const onSubmit: SubmitHandler<AssessmentFormData> = (data) => {
+    if (project?.evidence_gaps_completed_at) {
+      setFormData(data);
+      setShowConfirmation(true);
+    } else {
+      performSubmit(data);
     }
   };
 
@@ -98,27 +153,34 @@ export function ComplianceAssessment({ boundaryControl, onAssessmentSaved }: Com
           {/* Compliance Status */}
           <div>
             <Label htmlFor="compliance_status">Compliance Status</Label>
-             <Select
-                onValueChange={(value) => setValue('compliance_status', value as ComplianceStatus)}
-                defaultValue={boundaryControl.compliance_status || 'Not Assessed'}
-                disabled={isSubmitting}
-              >
-                <SelectTrigger id="compliance_status">
-                   <div className="flex items-center">
-                     {getStatusIcon(control._formValues.compliance_status)}
-                     <span className="ml-2"><SelectValue placeholder="Select status" /></span>
-                   </div>
-                </SelectTrigger>
-                <SelectContent>
-                  {complianceStatuses.map(s => (
-                    <SelectItem key={s} value={s}>
-                       <div className="flex items-center">
-                         {getStatusIcon(s)} <span className="ml-2">{s}</span>
-                       </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+             {/* Use Controller for Shadcn Select with react-hook-form */}
+             <Controller
+                control={control}
+                name="compliance_status"
+                render={({ field }) => (
+                  <Select
+                    onValueChange={field.onChange}
+                    value={field.value ?? 'Not Assessed'} // Use field.value
+                    disabled={isSubmitting}
+                  >
+                    <SelectTrigger id="compliance_status">
+                      <div className="flex items-center">
+                        {getStatusIcon(field.value)} {/* Use field.value */}
+                        <span className="ml-2"><SelectValue placeholder="Select status" /></span>
+                      </div>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {complianceStatuses.map(s => (
+                        <SelectItem key={s} value={s}>
+                          <div className="flex items-center">
+                            {getStatusIcon(s)} <span className="ml-2">{s}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
             {errors.compliance_status && <p className="text-red-500 text-xs mt-1">{errors.compliance_status.message}</p>}
           </div>
 
@@ -152,6 +214,25 @@ export function ComplianceAssessment({ boundaryControl, onAssessmentSaved }: Com
           </div>
         </form>
       </CardContent>
+
+      {/* Confirmation Dialog */}
+      <AlertDialog open={showConfirmation} onOpenChange={setShowConfirmation}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Modification</AlertDialogTitle>
+            <AlertDialogDescription>
+              The "Evidence & Gaps" phase is marked as complete. Saving this assessment will reset the phase status. Do you want to proceed?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setFormData(null)} disabled={isSubmitting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => formData && performSubmit(formData)} disabled={isSubmitting}>
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Confirm & Save
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }

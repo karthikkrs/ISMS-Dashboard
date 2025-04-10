@@ -1,4 +1,5 @@
 import { createBrowserClient } from '@supabase/ssr'
+// Removed import { unmarkProjectPhaseComplete } from './project-service';
 
 // Create a Supabase client for client components
 const supabase = createBrowserClient(
@@ -154,6 +155,25 @@ export const createBoundaryControl = async (
   }
 ): Promise<BoundaryControl> => {
   try {
+    // Check if the control is already associated with the boundary
+    const { data: existing, error: checkError } = await supabase
+      .from('boundary_controls')
+      .select('id')
+      .eq('boundary_id', boundaryId)
+      .eq('control_id', controlId)
+      .maybeSingle(); // Use maybeSingle to avoid error if not found
+
+    if (checkError) {
+      console.error('Error checking for existing boundary control:', JSON.stringify(checkError, null, 2));
+      throw new Error(`Failed to check for existing boundary control: ${checkError.message}`);
+    }
+
+    if (existing) {
+      console.warn(`Boundary control already exists for boundary ${boundaryId} and control ${controlId}. ID: ${existing.id}`);
+      // Throw the specific error that the UI might expect or handle
+      throw new Error('This control is already associated with this boundary');
+    }
+
     // Get the current user
     const { data: authData, error: authError } = await supabase.auth.getUser()
     
@@ -204,6 +224,8 @@ export const createBoundaryControl = async (
     if (!result) {
       throw new Error('No data returned from the server')
     }
+    
+    // Removed unmark call
     
     return result as BoundaryControl
   } catch (error) {
@@ -266,6 +288,8 @@ export const updateBoundaryControl = async (
       throw new Error('No data returned from the server')
     }
     
+    // Removed unmark call
+    
     return result as BoundaryControl
   } catch (error) {
     console.error('Error updating boundary control:', error)
@@ -313,6 +337,8 @@ export const deleteBoundaryControl = async (id: string): Promise<void> => {
       console.error('Error deleting boundary control:', JSON.stringify(error, null, 2))
       throw new Error(`Failed to delete boundary control: ${error.message}`)
     }
+    // Removed unmark call
+
   } catch (error) {
     console.error('Error deleting boundary control:', error)
     throw error

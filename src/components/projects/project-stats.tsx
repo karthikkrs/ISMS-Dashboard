@@ -2,6 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ProjectStats } from '@/types'
+// Removed React import
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 import { ClipboardListIcon, ClockIcon, CheckCircleIcon, PauseCircleIcon } from 'lucide-react'
 
@@ -23,16 +24,7 @@ export function ProjectStatsCards({ stats }: ProjectStatsProps) {
         </CardContent>
       </Card>
       
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-sm font-medium">Not Started</CardTitle>
-          <ClockIcon className="h-4 w-4 text-gray-500" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{stats.not_started}</div>
-          <p className="text-xs text-gray-500">Projects yet to begin</p>
-        </CardContent>
-      </Card>
+      {/* Removed Not Started Card */}
       
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -60,8 +52,9 @@ export function ProjectStatsCards({ stats }: ProjectStatsProps) {
 }
 
 export function ProjectStatsChart({ stats }: ProjectStatsProps) {
+  // Reverted: Removed client-side rendering logic
+
   const data = [
-    { name: 'Not Started', value: stats.not_started, color: '#94a3b8' },
     { name: 'In Progress', value: stats.in_progress, color: '#3b82f6' },
     { name: 'Completed', value: stats.completed, color: '#22c55e' },
     { name: 'On Hold', value: stats.on_hold, color: '#eab308' },
@@ -74,6 +67,7 @@ export function ProjectStatsChart({ stats }: ProjectStatsProps) {
       </CardHeader>
       <CardContent>
         <div className="h-80">
+          {/* Reverted: Original chart rendering */}
           <ResponsiveContainer width="100%" height="100%">
             <BarChart
               data={data}

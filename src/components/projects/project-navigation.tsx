@@ -8,19 +8,22 @@ import {
   ClipboardListIcon, 
   MapIcon, 
   UsersIcon, 
-  FileTextIcon, 
-  ShieldIcon, 
+  FileTextIcon,
+  ShieldIcon,
   CheckSquareIcon,
   BarChart2Icon,
-  FileSearchIcon // Import new icon
+  FileSearchIcon, // Import new icon
+  ClipboardCheckIcon // Import icon for Questionnaire
 } from 'lucide-react'
 import { getBoundaries } from '@/services/boundary-service'
-import { getStakeholders } from '@/services/stakeholder-service'
-import { getProjectBoundaryControls } from '@/services/boundary-control-service'
-import { useQuery } from '@tanstack/react-query'
+import { getStakeholders } from '@/services/stakeholder-service';
+import { getProjectBoundaryControls } from '@/services/boundary-control-service';
+import { getProjectById } from '@/services/project-service'; // Import service to get project details
+import { useQuery } from '@tanstack/react-query';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'; // Import Tabs components
 
 interface ProjectNavigationProps {
-  projectId: string
+  projectId: string;
 }
 
 export function ProjectNavigation({ projectId }: ProjectNavigationProps) {
@@ -52,10 +55,19 @@ export function ProjectNavigation({ projectId }: ProjectNavigationProps) {
     staleTime: 1000 * 60 * 5, // 5 minutes
     refetchOnWindowFocus: false
   })
+
+  // Fetch project data to check questionnaire completion status
+  const { data: project } = useQuery({
+    queryKey: ['project', projectId],
+    queryFn: () => getProjectById(projectId),
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    refetchOnWindowFocus: false
+  });
   
   // Determine if sections are completed
   const boundariesCompleted = boundaries.length > 0
   const stakeholdersCompleted = stakeholders.length > 0
+  const questionnaireCompleted = !!project?.questionnaire_completed_at; // Check the timestamp
   const soaCompleted = boundaryControls.length > 0
   
   const navItems = [
@@ -63,8 +75,9 @@ export function ProjectNavigation({ projectId }: ProjectNavigationProps) {
       name: 'Overview',
       href: `/dashboard/projects/${projectId}`,
       icon: ClipboardListIcon,
-      completed: true
+      completed: true // Assuming overview is always accessible
     },
+    // Removed Objectives nav item
     {
       name: 'Boundaries',
       href: `/dashboard/projects/${projectId}/boundaries`,
@@ -76,6 +89,12 @@ export function ProjectNavigation({ projectId }: ProjectNavigationProps) {
       href: `/dashboard/projects/${projectId}/stakeholders`,
       icon: UsersIcon,
       completed: stakeholdersCompleted
+    },
+    {
+      name: 'Questionnaire',
+      href: `/dashboard/projects/${projectId}/questionnaire`,
+      icon: ClipboardCheckIcon,
+      completed: questionnaireCompleted
     },
     {
       name: 'Statement of Applicability',
@@ -93,38 +112,33 @@ export function ProjectNavigation({ projectId }: ProjectNavigationProps) {
       name: 'Reports',
       href: `/dashboard/projects/${projectId}/reports`,
       icon: BarChart2Icon,
-      completed: false
-    }
-  ]
+      completed: false,
+    },
+  ];
+
+  // Determine the active tab value based on the current pathname
+  const activeTabValue = navItems.find(item => pathname === item.href)?.href || navItems[0].href;
 
   return (
-    <nav className="mb-8">
-      <div className="flex overflow-x-auto pb-2 hide-scrollbar">
-        <div className="flex space-x-2">
-          {navItems.map((item) => {
-            const isActive = pathname === item.href
-            
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "flex items-center px-3 py-2 text-sm font-medium rounded-md whitespace-nowrap",
-                  isActive
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted hover:bg-muted/80 text-foreground"
-                )}
-              >
-                <item.icon className="mr-2 h-4 w-4" />
-                <span>{item.name}</span>
-                {item.completed && (
-                  <span className="ml-2 h-2 w-2 rounded-full bg-green-500" />
-                )}
-              </Link>
-            )
-          })}
-        </div>
-      </div>
-    </nav>
-  )
+    <Tabs defaultValue={activeTabValue} className="mb-6">
+      <TabsList className="inline-flex h-auto bg-transparent p-0">
+        {navItems.map((item) => (
+          <TabsTrigger 
+            key={item.href} 
+            value={item.href} 
+            className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-none h-auto px-3 py-1.5 mr-1 rounded-md text-sm font-medium"
+            asChild // Important: Allows Link to control navigation
+          >
+            <Link href={item.href}>
+              <item.icon className="mr-2 h-4 w-4" />
+              <span>{item.name}</span>
+              {item.completed && (
+                <span className="ml-2 h-2 w-2 rounded-full bg-green-500" />
+              )}
+            </Link>
+          </TabsTrigger>
+        ))}
+      </TabsList>
+    </Tabs>
+  );
 }

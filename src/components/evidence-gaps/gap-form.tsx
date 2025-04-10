@@ -4,38 +4,68 @@ import React, { useState, useEffect } from 'react';
 import { useForm, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'; // Import query/mutation hooks
 import { createGap, updateGap } from '@/services/gap-service';
-import { Gap, GapSeverity, GapStatus } from '@/types';
+import { getProjectById, unmarkProjectPhaseComplete } from '@/services/project-service'; // Import project service functions
+import { Gap, GapSeverity, GapStatus, ProjectWithStatus } from '@/types'; // Import Project type
 import { Button } from '@/components/ui/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"; // Import AlertDialog components
+import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, PlusCircle, Save } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 
-// Zod schema for form validation
+// Zod schema for form validation - Add title
 const gapSchema = z.object({
+  title: z.string().min(1, 'Title is required'), // Add title validation
   description: z.string().min(1, 'Description is required'),
   severity: z.enum(['Critical', 'High', 'Medium', 'Low']),
   status: z.enum(['Identified', 'In Review', 'Confirmed', 'Remediated', 'Closed']).optional(),
 });
 
+// Infer type from schema
 type GapFormData = z.infer<typeof gapSchema>;
 
 interface GapFormProps {
+  projectId: string; // Added projectId prop
   boundaryControlId: string;
   existingGap?: Gap | null; // Pass existing gap data for editing
   onGapSaved: () => void; // Callback after saving (add or edit)
   onCancel?: () => void; // Optional callback for cancelling edit
 }
 
-export function GapForm({ boundaryControlId, existingGap, onGapSaved, onCancel }: GapFormProps) {
+// Add projectId to the function signature and props destructuring
+export function GapForm({ projectId, boundaryControlId, existingGap, onGapSaved, onCancel }: GapFormProps) { 
+  const queryClient = useQueryClient(); // For invalidating queries
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [formData, setFormData] = useState<GapFormData | null>(null); // Store form data for confirmation
+
+  // Fetch project data to check completion status
+  const { data: project } = useQuery<ProjectWithStatus | null>({
+    queryKey: ['project', projectId],
+    queryFn: () => getProjectById(projectId),
+    enabled: !!projectId,
+    staleTime: Infinity,
+  });
 
   const { register, handleSubmit, reset, control, setValue, formState: { errors } } = useForm<GapFormData>({
     resolver: zodResolver(gapSchema),
+    // Add title to default values
     defaultValues: {
+      title: existingGap?.title || '', 
       description: existingGap?.description || '',
       severity: existingGap?.severity || 'Medium', // Default severity
       status: existingGap?.status || 'Identified', // Default status
@@ -45,36 +75,49 @@ export function GapForm({ boundaryControlId, existingGap, onGapSaved, onCancel }
   // Reset form if existingGap changes (e.g., when switching from add to edit)
   useEffect(() => {
     if (existingGap) {
+      setValue('title', existingGap.title); // Set title on edit
       setValue('description', existingGap.description);
       setValue('severity', existingGap.severity);
       setValue('status', existingGap.status);
     } else {
-       reset({ description: '', severity: 'Medium', status: 'Identified' }); // Reset to defaults for adding
+       // Reset title as well
+       reset({ title: '', description: '', severity: 'Medium', status: 'Identified' }); 
     }
   }, [existingGap, setValue, reset]);
 
-
-  const onSubmit: SubmitHandler<GapFormData> = async (data) => {
+  // Function to actually perform the gap creation/update and phase unmarking
+  const performSubmit = async (data: GapFormData) => {
     setIsSubmitting(true);
     setError(null);
     try {
+      let savedGap: Gap;
       if (existingGap) {
         // Update existing gap
-        await updateGap(existingGap.id, {
+        savedGap = await updateGap(existingGap.id, {
+          title: data.title,
           description: data.description,
           severity: data.severity,
           status: data.status,
         });
       } else {
         // Create new gap
-        await createGap(boundaryControlId, {
+        savedGap = await createGap(projectId, boundaryControlId, {
+          title: data.title,
           description: data.description,
           severity: data.severity,
           status: data.status,
         });
       }
-      reset({ description: '', severity: 'Medium', status: 'Identified' }); // Reset after successful save
-      onGapSaved(); // Trigger refetch/update in parent
+
+      // Unmark Phase (only if it was previously complete)
+      if (project?.evidence_gaps_completed_at) {
+        await unmarkProjectPhaseComplete(projectId, 'evidence_gaps_completed_at');
+        queryClient.invalidateQueries({ queryKey: ['project', projectId] });
+        queryClient.invalidateQueries({ queryKey: ['projects'] });
+      }
+
+      reset({ title: '', description: '', severity: 'Medium', status: 'Identified' });
+      onGapSaved();
       // TODO: Show success toast
     } catch (err: any) {
       console.error("Failed to save gap:", err);
@@ -82,10 +125,23 @@ export function GapForm({ boundaryControlId, existingGap, onGapSaved, onCancel }
       // TODO: Show error toast
     } finally {
       setIsSubmitting(false);
+      setShowConfirmation(false);
+      setFormData(null);
+    }
+  };
+
+  // Initial submit handler: checks phase status and shows confirmation if needed
+  const onSubmit: SubmitHandler<GapFormData> = (data) => {
+    if (project?.evidence_gaps_completed_at) {
+      setFormData(data);
+      setShowConfirmation(true);
+    } else {
+      performSubmit(data);
     }
   };
 
   return (
+    <>
     <Card>
        <CardHeader>
         <CardTitle>{existingGap ? 'Edit Gap' : 'Identify New Gap'}</CardTitle>
@@ -93,10 +149,17 @@ export function GapForm({ boundaryControlId, existingGap, onGapSaved, onCancel }
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          {/* Title Input */}
+          <div>
+            <Label htmlFor="title">Gap Title</Label>
+            <Input id="title" {...register('title')} disabled={isSubmitting} placeholder="e.g., Firewall Rule Missing" />
+            {errors.title && <p className="text-red-500 text-xs mt-1">{errors.title.message}</p>}
+          </div>
+
           {/* Description */}
           <div>
             <Label htmlFor="description">Gap Description</Label>
-            <Textarea id="description" {...register('description')} disabled={isSubmitting} rows={4} />
+            <Textarea id="description" {...register('description')} disabled={isSubmitting} rows={4} placeholder="Describe the gap found..."/>
             {errors.description && <p className="text-red-500 text-xs mt-1">{errors.description.message}</p>}
           </div>
 
@@ -167,5 +230,25 @@ export function GapForm({ boundaryControlId, existingGap, onGapSaved, onCancel }
         </form>
       </CardContent>
     </Card>
+
+    {/* Confirmation Dialog */}
+    <AlertDialog open={showConfirmation} onOpenChange={setShowConfirmation}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Confirm Modification</AlertDialogTitle>
+          <AlertDialogDescription>
+            The "Evidence & Gaps" phase is marked as complete. {existingGap ? 'Updating this gap' : 'Adding a new gap'} will reset this status. Do you want to proceed?
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={() => setFormData(null)} disabled={isSubmitting}>Cancel</AlertDialogCancel>
+          <AlertDialogAction onClick={() => formData && performSubmit(formData)} disabled={isSubmitting}>
+            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Confirm & {existingGap ? 'Save' : 'Add'}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }

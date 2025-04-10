@@ -24,8 +24,7 @@ import {
   X,
 } from "lucide-react"
 
-import { Github } from "./custom-icons/github"
-import { Google } from "./custom-icons/google"
+// Removed unused Github and Google imports
 
 export const Icons = {
   logo: Command,
@@ -49,8 +48,8 @@ export const Icons = {
   sun: SunMedium,
   moon: Moon,
   laptop: Laptop,
-  gitHub: Github,
-  google: Google,
+  // Removed gitHub: Github,
+  // Removed google: Google,
   twitter: Twitter,
   check: Check,
 }

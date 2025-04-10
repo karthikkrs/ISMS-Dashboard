@@ -1,10 +1,21 @@
 'use client'
 
 import { useState } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query' // Added useMutation
 import { getStakeholders, deleteStakeholder } from '@/services/stakeholder-service'
-import { Stakeholder } from '@/types'
+import { getProjectById, unmarkProjectPhaseComplete } from '@/services/project-service'; // Import project service functions
+import { Stakeholder, ProjectWithStatus } from '@/types' // Import Project type
 import { Button } from '@/components/ui/button'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"; // Import AlertDialog components
 import { Card, CardContent } from '@/components/ui/card'
 import { StakeholderForm } from './stakeholder-form'
 import { Loader2, Pencil, Trash, Mail } from 'lucide-react'
@@ -25,6 +36,9 @@ export function StakeholdersTable({ projectId }: StakeholdersTableProps) {
   const queryClient = useQueryClient()
   const [showAddForm, setShowAddForm] = useState(false)
   const [editingStakeholder, setEditingStakeholder] = useState<Stakeholder | null>(null)
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
+  const [stakeholderToDelete, setStakeholderToDelete] = useState<Stakeholder | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false); // Keep isDeleting state
   
   // Fetch stakeholders data
   const { 
@@ -37,6 +51,14 @@ export function StakeholdersTable({ projectId }: StakeholdersTableProps) {
     queryFn: () => getStakeholders(projectId)
   })
 
+  // Fetch project data to check completion status
+  const { data: project } = useQuery<ProjectWithStatus | null>({
+    queryKey: ['project', projectId],
+    queryFn: () => getProjectById(projectId),
+    enabled: !!projectId,
+    staleTime: Infinity,
+  });
+
   // Handle form close
   const handleFormClose = () => {
     setShowAddForm(false)
@@ -44,17 +66,44 @@ export function StakeholdersTable({ projectId }: StakeholdersTableProps) {
     refetch()
   }
 
-  // Handle delete
-  const handleDelete = async (id: string) => {
-    if (window.confirm('Are you sure you want to delete this stakeholder?')) {
-      try {
-        await deleteStakeholder(id)
-        refetch()
-      } catch (error) {
-        console.error('Error deleting stakeholder:', error)
+  // Function to actually perform the deletion and phase unmarking
+  const performDelete = async (stakeholder: Stakeholder) => {
+    if (!stakeholder) return;
+    setIsDeleting(true);
+    try {
+      // 1. Delete Stakeholder
+      await deleteStakeholder(stakeholder.id);
+
+      // 2. Unmark Phase (only if it was previously complete)
+      if (project?.stakeholders_completed_at) {
+        await unmarkProjectPhaseComplete(projectId, 'stakeholders_completed_at');
+        queryClient.invalidateQueries({ queryKey: ['project', projectId] });
+        queryClient.invalidateQueries({ queryKey: ['projects'] });
+      }
+
+      refetch(); // Refetch stakeholder list
+      // TODO: Show success toast
+    } catch (error) {
+      console.error('Error deleting stakeholder:', error);
+      // TODO: Show error toast
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteConfirmation(false);
+      setStakeholderToDelete(null);
+    }
+  };
+
+  // Initial delete handler: checks phase status and shows confirmation if needed
+  const handleDeleteClick = (stakeholder: Stakeholder) => {
+    if (project?.stakeholders_completed_at) {
+      setStakeholderToDelete(stakeholder);
+      setShowDeleteConfirmation(true);
+    } else {
+      if (confirm('Are you sure you want to delete this stakeholder? This action cannot be undone.')) {
+        performDelete(stakeholder);
       }
     }
-  }
+  };
 
   // Loading state
   if (isLoading) {
@@ -165,9 +214,10 @@ export function StakeholdersTable({ projectId }: StakeholdersTableProps) {
                     <Button 
                       variant="ghost" 
                       size="icon"
-                      onClick={() => handleDelete(stakeholder.id)}
+                      onClick={() => handleDeleteClick(stakeholder)} // Use new handler
+                      disabled={isDeleting} // Disable if any delete is in progress
                     >
-                      <Trash size={16} className="text-red-500" />
+                      {isDeleting && stakeholderToDelete?.id === stakeholder.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash size={16} className="text-red-500" />}
                     </Button>
                   </div>
                 </TableCell>
@@ -198,6 +248,25 @@ export function StakeholdersTable({ projectId }: StakeholdersTableProps) {
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteConfirmation} onOpenChange={setShowDeleteConfirmation}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Modification</AlertDialogTitle>
+            <AlertDialogDescription>
+              The "Stakeholders" phase is marked as complete. Deleting this stakeholder will reset the phase status. Are you sure you want to delete "{stakeholderToDelete?.name}"?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setStakeholderToDelete(null)} disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => stakeholderToDelete && performDelete(stakeholderToDelete)} disabled={isDeleting}>
+              {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Confirm & Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

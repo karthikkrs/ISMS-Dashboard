@@ -1,3 +1,0 @@
-URL - https://iovemnfcfuwtuvcmqlqu.supabase.co
-
-Anon Key - eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlvdmVtbmZjZnV3dHV2Y21xbHF1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM1NzgyMzgsImV4cCI6MjA1OTE1NDIzOH0.vfW7xwxep0OFNzXgnlJvcFqKhx1Q5TgmQJdBDsOlfYA

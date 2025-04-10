@@ -1,0 +1,12 @@
+# Cline Rules
+
+# Automatically start a new task when context window reaches 70%
+# This helps maintain task flow by preserving context in a new session.
+[rule]
+name = auto_new_task_on_context_limit
+description = Start a new task automatically when context window usage reaches 60%
+trigger = context_window_usage >= 70%
+action = new_task
+parameters = {
+  "context": "Use context from the current conversation to summarize progress and define next steps."
+}

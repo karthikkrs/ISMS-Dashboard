@@ -1,10 +1,12 @@
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
-import { redirect } from 'next/navigation'
-import { ProjectsDashboard } from '@/components/projects/projects-dashboard'
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import Link from 'next/link'
+import { createServerClient } from '@supabase/ssr';
+import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
+// Removed dynamic import
+import { ProjectsDashboard } from '@/components/projects/projects-dashboard'; // Import directly
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import Link from 'next/link';
+// Removed Loader2Icon import as loading state is removed
 
 export default async function DashboardPage() {
   // Get the cookie store - await it since it's now asynchronous in Next.js 15

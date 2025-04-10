@@ -1,16 +1,29 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react' // Added useEffect
 import { useRouter } from 'next/navigation'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'; // Import query/mutation hooks
 import { Button } from '@/components/ui/button'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"; // Import AlertDialog components
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { createBoundary, updateBoundary } from '@/services/boundary-service'
-import { Boundary, BoundaryType } from '@/types'
+import { getProjectById, unmarkProjectPhaseComplete } from '@/services/project-service'; // Import project service functions
+import { BoundaryType, ProjectWithStatus } from '@/types' // Remove Boundary import
+import { Tables } from '@/types/database.types'; // Import Tables helper
 import { Loader2, Plus, Trash2, X, Building2, Server, Globe, FileQuestion, Info, CheckCircle, XCircle } from 'lucide-react'
 import { 
   Table, 
@@ -36,7 +49,10 @@ const boundarySchema = z.object({
   type: z.enum(['Department', 'System', 'Location', 'Other']),
   description: z.string().nullable().optional(),
   included: z.boolean(),
-  notes: z.string().nullable().optional()
+  notes: z.string().nullable().optional(),
+  // Add asset value fields
+  asset_value_qualitative: z.enum(['High', 'Medium', 'Low']).nullable().optional(),
+  asset_value_quantitative: z.number().nullable().optional(),
 })
 
 // Define the schema for the form with multiple boundaries
@@ -46,31 +62,46 @@ const multiBoundaryFormSchema = z.object({
 
 type BoundaryInput = z.infer<typeof boundarySchema>
 type MultiBoundaryFormValues = z.infer<typeof multiBoundaryFormSchema>
+type Boundary = Tables<'boundaries'>; // Define Boundary using Tables helper
 
 interface MultiBoundaryFormProps {
   projectId: string
-  boundary?: Boundary
+  boundary?: Boundary // Use the locally defined Boundary type
   isEditing?: boolean
   onSuccess?: () => void
 }
 
 export function MultiBoundaryForm({ projectId, boundary, isEditing = false, onSuccess }: MultiBoundaryFormProps) {
   const router = useRouter()
+  const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [formData, setFormData] = useState<MultiBoundaryFormValues | null>(null);
+
+  // Fetch project data to check completion status
+  const { data: project } = useQuery<ProjectWithStatus | null>({
+    queryKey: ['project', projectId],
+    queryFn: () => getProjectById(projectId),
+    enabled: !!projectId,
+    staleTime: Infinity,
+  });
 
   // Initialize form with default values or existing boundary data
-  const { register, control, handleSubmit, formState: { errors } } = useForm<MultiBoundaryFormValues>({
+  const { register, control, handleSubmit, formState: { errors }, reset } = useForm<MultiBoundaryFormValues>({ // Added reset
     resolver: zodResolver(multiBoundaryFormSchema),
     defaultValues: {
       boundaries: isEditing && boundary 
         ? [
             {
               name: boundary.name,
-              type: boundary.type,
+              type: boundary.type as BoundaryType, // Assert type here
               description: boundary.description,
               included: boundary.included,
-              notes: boundary.notes
+              notes: boundary.notes,
+              // Add asset value defaults for editing, asserting type for qualitative
+              asset_value_qualitative: boundary.asset_value_qualitative as ('High' | 'Medium' | 'Low' | null | undefined), 
+              asset_value_quantitative: boundary.asset_value_quantitative,
             }
           ]
         : [
@@ -79,7 +110,10 @@ export function MultiBoundaryForm({ projectId, boundary, isEditing = false, onSu
               type: 'Department',
               description: null,
               included: true,
-              notes: null
+              notes: null,
+              // Add asset value defaults for new
+              asset_value_qualitative: null,
+              asset_value_quantitative: null,
             }
           ]
     }
@@ -91,34 +125,54 @@ export function MultiBoundaryForm({ projectId, boundary, isEditing = false, onSu
     name: 'boundaries'
   })
 
-  // Handle form submission
-  const onSubmit = async (data: MultiBoundaryFormValues) => {
-    setIsSubmitting(true)
-    setError(null)
+  // Function to actually perform the boundary creation/update and phase unmarking
+  const performSubmit = async (data: MultiBoundaryFormValues) => {
+     setIsSubmitting(true)
+     setError(null)
+     try {
+       const wasPhaseComplete = !!project?.boundaries_completed_at; // Check status before modification
 
-    try {
-      if (isEditing && boundary) {
-        // Update existing boundary with the first boundary in the array
-        await updateBoundary(boundary.id, data.boundaries[0])
-      } else {
-        // Create each boundary sequentially
-        for (const boundaryData of data.boundaries) {
-          await createBoundary(projectId, boundaryData)
-        }
-      }
-      
-      // Refresh the page to update the data
-      router.refresh()
-      
-      // Call onSuccess callback if provided
-      if (onSuccess) {
-        onSuccess()
-      }
-    } catch (err) {
-      console.error('Error saving boundaries:', err)
-      setError(`Failed to save boundaries: ${err instanceof Error ? err.message : 'Unknown error'}`)
-    } finally {
-      setIsSubmitting(false)
+       if (isEditing && boundary) {
+         await updateBoundary(boundary.id, data.boundaries[0])
+       } else {
+         for (const boundaryData of data.boundaries) {
+           await createBoundary(projectId, boundaryData)
+         }
+       }
+
+       // Unmark Phase if it was previously complete
+       if (wasPhaseComplete) {
+         await unmarkProjectPhaseComplete(projectId, 'boundaries_completed_at');
+         queryClient.invalidateQueries({ queryKey: ['project', projectId] });
+         queryClient.invalidateQueries({ queryKey: ['projects'] });
+       }
+       
+       // Reset form only if creating new boundaries
+       if (!isEditing) {
+          reset({ boundaries: [{ name: '', type: 'Department', description: null, included: true, notes: null }] });
+       }
+
+       router.refresh() // Consider using queryClient.invalidateQueries instead if possible
+       if (onSuccess) {
+         onSuccess()
+       }
+     } catch (err) {
+       console.error('Error saving boundaries:', err)
+       setError(`Failed to save boundaries: ${err instanceof Error ? err.message : 'Unknown error'}`)
+     } finally {
+       setIsSubmitting(false)
+       setShowConfirmation(false);
+       setFormData(null);
+     }
+  }
+
+  // Initial submit handler: checks phase status and shows confirmation if needed
+  const onSubmit = (data: MultiBoundaryFormValues) => {
+    if (project?.boundaries_completed_at) {
+      setFormData(data);
+      setShowConfirmation(true);
+    } else {
+      performSubmit(data);
     }
   }
 
@@ -129,7 +183,10 @@ export function MultiBoundaryForm({ projectId, boundary, isEditing = false, onSu
       type: 'Department',
       description: null,
       included: true,
-      notes: null
+      notes: null,
+      // Add asset value defaults for appending
+      asset_value_qualitative: null,
+      asset_value_quantitative: null,
     })
   }
 
@@ -196,6 +253,8 @@ export function MultiBoundaryForm({ projectId, boundary, isEditing = false, onSu
                   <TableHead>Name</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Description</TableHead>
+                  <TableHead>Asset Value (Qual)</TableHead> {/* New Header */}
+                  <TableHead>Asset Value (Quant)</TableHead> {/* New Header */}
                   <TableHead>In Scope</TableHead>
                   <TableHead className="w-[80px]">Actions</TableHead>
                 </TableRow>
@@ -247,11 +306,48 @@ export function MultiBoundaryForm({ projectId, boundary, isEditing = false, onSu
                       </div>
                     </TableCell>
                     <TableCell>
-                        <Textarea
-                          placeholder="Description (optional)"
-                          {...register(`boundaries.${index}.description`)}
-                          className="min-h-[80px] resize-none focus-visible:ring-blue-200 transition-all"
-                        />
+                         <Textarea
+                           placeholder="Description (optional)"
+                           {...register(`boundaries.${index}.description`)}
+                           rows={3} // Add default rows
+                           className="min-h-[80px] focus-visible:ring-blue-200 transition-all" // Remove resize-none
+                         />
+                    </TableCell>
+                    {/* Asset Value Qualitative */}
+                    <TableCell>
+                       <Select
+                         defaultValue={field.asset_value_qualitative ?? undefined}
+                         onValueChange={(value) => {
+                           const event = { target: { value: value === 'null' ? null : value } } as any; // Handle null
+                           register(`boundaries.${index}.asset_value_qualitative`).onChange(event);
+                         }}
+                       >
+                         <SelectTrigger>
+                           <SelectValue placeholder="Select Value" />
+                         </SelectTrigger>
+                         <SelectContent>
+                           <SelectItem value="High">High</SelectItem>
+                           <SelectItem value="Medium">Medium</SelectItem>
+                           <SelectItem value="Low">Low</SelectItem>
+                           <SelectItem value="null">N/A</SelectItem> {/* Option for null */}
+                         </SelectContent>
+                       </Select>
+                       <input type="hidden" {...register(`boundaries.${index}.asset_value_qualitative`)} />
+                    </TableCell>
+                     {/* Asset Value Quantitative */}
+                    <TableCell>
+                       <Input
+                         type="number"
+                         placeholder="e.g., 10000"
+                         {...register(`boundaries.${index}.asset_value_quantitative`, { valueAsNumber: true })} // Ensure value is treated as number
+                         className={`transition-all ${errors.boundaries?.[index]?.asset_value_quantitative ? 'border-destructive focus-visible:ring-destructive/30' : 'focus-visible:ring-blue-200'}`}
+                       />
+                       {errors.boundaries?.[index]?.asset_value_quantitative && (
+                         <p className="text-xs text-destructive mt-1 flex items-center">
+                           <XCircle className="h-3 w-3 mr-1" />
+                           {errors.boundaries?.[index]?.asset_value_quantitative?.message}
+                         </p>
+                       )}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center space-x-2">
@@ -342,6 +438,25 @@ export function MultiBoundaryForm({ projectId, boundary, isEditing = false, onSu
           </Button>
         </CardFooter>
       </form>
+
+      {/* Confirmation Dialog */}
+      <AlertDialog open={showConfirmation} onOpenChange={setShowConfirmation}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Modification</AlertDialogTitle>
+            <AlertDialogDescription>
+              The "Boundaries" phase is marked as complete. {isEditing ? 'Updating this boundary' : 'Adding new boundaries'} will reset this status. Do you want to proceed?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setFormData(null)} disabled={isSubmitting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => formData && performSubmit(formData)} disabled={isSubmitting}>
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Confirm & {isEditing ? 'Update' : 'Add'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   )
 }

@@ -1,5 +1,6 @@
 import { createBrowserClient } from '@supabase/ssr'
-import { Evidence } from '@/types' // Assuming Evidence type is defined in src/types/index.ts
+import { Evidence } from '@/types' 
+import { unmarkProjectPhaseComplete } from './project-service'; // Re-add the import
 
 // Create a Supabase client for client components
 const supabase = createBrowserClient(
@@ -44,6 +45,36 @@ export const createEvidence = async (
     const { data: authData, error: authError } = await supabase.auth.getUser()
     if (authError || !authData.user) throw new Error('User not authenticated')
 
+    // --- Fetch project_id and control_id ---
+    // 1. Get boundary_id and control_id from boundary_control_id
+    const { data: bcData, error: bcError } = await supabase
+      .from('boundary_controls')
+      .select('boundary_id, control_id') // Select control_id as well
+      .eq('id', boundaryControlId)
+      .single()
+
+    if (bcError || !bcData) {
+      console.error('Error fetching boundary control:', bcError)
+      throw new Error(`Boundary control with ID ${boundaryControlId} not found.`)
+    }
+    const boundaryId = bcData.boundary_id
+    const controlId = bcData.control_id // Store control_id
+
+    // 2. Get project_id from boundary_id
+    const { data: boundaryData, error: boundaryError } = await supabase
+      .from('boundaries')
+      .select('project_id')
+      .eq('id', boundaryId)
+      .single()
+
+    if (boundaryError || !boundaryData) {
+      console.error('Error fetching boundary:', boundaryError)
+      throw new Error(`Boundary with ID ${boundaryId} not found.`)
+    }
+    const projectId = boundaryData.project_id
+    // --- End Fetch project_id ---
+
+
     let filePath: string | null = null
     let fileName: string | null = null
     let fileType: string | null = null
@@ -52,10 +83,10 @@ export const createEvidence = async (
     if (data.file) {
       fileName = data.file.name
       fileType = data.file.type
-      // Construct a unique file path, e.g., using user ID, boundary control ID, and timestamp
-      filePath = `${authData.user.id}/${boundaryControlId}/${Date.now()}-${fileName}`
+      // Use a simpler file path structure: boundaryControlId/timestamp-filename
+      filePath = `${boundaryControlId}/${Date.now()}-${fileName}`
 
-      console.log(`Uploading file to: ${filePath}`)
+      console.log(`Uploading file to (simplified path): ${filePath}`)
       const { error: uploadError } = await supabase.storage
         .from(STORAGE_BUCKET)
         .upload(filePath, data.file)
@@ -69,6 +100,8 @@ export const createEvidence = async (
 
     // Prepare data for the evidence table
     const evidenceData = {
+      project_id: projectId, // Include the fetched project_id
+      control_id: controlId, // Include the fetched control_id
       boundary_control_id: boundaryControlId,
       title: data.title,
       description: data.description,
@@ -97,6 +130,9 @@ export const createEvidence = async (
     if (!result) throw new Error('No data returned after creating evidence record')
 
     console.log('Evidence record created successfully:', result.id)
+
+    // Removed unmark call
+
     return result as Evidence
   } catch (error) {
     console.error('Error in createEvidence:', error)
@@ -110,10 +146,11 @@ export const deleteEvidence = async (evidenceId: string): Promise<void> => {
     const { data: authData, error: authError } = await supabase.auth.getUser()
     if (authError || !authData.user) throw new Error('User not authenticated')
 
-    // Fetch the evidence record to get file path and check ownership
+    // Fetch the evidence record to get file path, project_id and check ownership
+    // We need project_id to unmark the phase later
     const { data: evidence, error: fetchError } = await supabase
       .from('evidence')
-      .select('id, file_path, uploaded_by')
+      .select('id, file_path, uploaded_by, project_id') // Added project_id
       .eq('id', evidenceId)
       .single()
 
@@ -154,6 +191,19 @@ export const deleteEvidence = async (evidenceId: string): Promise<void> => {
         console.log('Associated file deleted successfully')
       }
     }
+
+    // Unmark the evidence/gaps phase as complete since evidence was deleted
+    if (evidence.project_id) {
+      try {
+        await unmarkProjectPhaseComplete(evidence.project_id, 'evidence_gaps_completed_at');
+      } catch (unmarkError) {
+        console.error("Failed to unmark evidence/gaps phase after deletion:", unmarkError);
+      }
+    } else {
+       console.warn(`Could not unmark phase for deleted evidence ${evidenceId} as project_id was missing.`);
+    }
+    // Removed unmark call
+
   } catch (error) {
     console.error('Error in deleteEvidence:', error)
     throw error
@@ -215,6 +265,19 @@ export const updateEvidence = async (
     if (!result) throw new Error('No data returned after updating evidence record')
 
     console.log('Evidence record updated successfully')
+
+    // Unmark the evidence/gaps phase as complete since evidence was updated
+     if (result.project_id) {
+      try {
+        await unmarkProjectPhaseComplete(result.project_id, 'evidence_gaps_completed_at');
+      } catch (unmarkError) {
+        console.error("Failed to unmark evidence/gaps phase after update:", unmarkError);
+      }
+    } else {
+       console.warn(`Could not unmark phase for updated evidence ${evidenceId} as project_id was missing.`);
+    }
+    // Removed unmark call
+
     return result as Evidence
   } catch (error) {
     console.error('Error in updateEvidence:', error)

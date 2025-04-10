@@ -4,8 +4,21 @@ import React, { useState } from 'react';
 import { useForm, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'; // Import query/mutation hooks
 import { createEvidence } from '@/services/evidence-service';
+import { getProjectById, unmarkProjectPhaseComplete } from '@/services/project-service'; // Import project service functions
+import { ProjectWithStatus } from '@/types'; // Import Project type
 import { Button } from '@/components/ui/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"; // Import AlertDialog components
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -23,14 +36,26 @@ const evidenceSchema = z.object({
 type EvidenceFormData = z.infer<typeof evidenceSchema>;
 
 interface EvidenceFormProps {
+  projectId: string; // Need projectId to fetch project status
   boundaryControlId: string;
-  onEvidenceAdded: () => void; // Callback to refetch list after adding
+  onEvidenceAdded: () => void;
 }
 
-export function EvidenceForm({ boundaryControlId, onEvidenceAdded }: EvidenceFormProps) {
+export function EvidenceForm({ projectId, boundaryControlId, onEvidenceAdded }: EvidenceFormProps) {
+  const queryClient = useQueryClient(); // For invalidating queries
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [formData, setFormData] = useState<EvidenceFormData | null>(null); // Store form data for confirmation
+
+  // Fetch project data to check completion status
+  const { data: project } = useQuery<ProjectWithStatus | null>({
+    queryKey: ['project', projectId],
+    queryFn: () => getProjectById(projectId),
+    enabled: !!projectId, // Only fetch if projectId is available
+    staleTime: Infinity, // Avoid refetching just for status check within the form
+  });
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<EvidenceFormData>({
     resolver: zodResolver(evidenceSchema),
@@ -41,20 +66,31 @@ export function EvidenceForm({ boundaryControlId, onEvidenceAdded }: EvidenceFor
     setSelectedFileName(file ? file.name : null);
   };
 
-  const onSubmit: SubmitHandler<EvidenceFormData> = async (data) => {
+  // Function to actually perform the evidence creation and phase unmarking
+  const performSubmit = async (data: EvidenceFormData) => {
     setIsSubmitting(true);
     setError(null);
     try {
-      const fileToUpload = data.file?.[0] || null; // Get the first file from FileList
+      const fileToUpload = data.file?.[0] || null;
 
+      // 1. Create Evidence
       await createEvidence(boundaryControlId, {
         title: data.title,
         description: data.description,
         file: fileToUpload,
       });
-      reset(); // Reset form fields
-      setSelectedFileName(null); // Clear selected file name
-      onEvidenceAdded(); // Trigger refetch in parent
+
+      // 2. Unmark Phase (only if it was previously complete)
+      if (project?.evidence_gaps_completed_at) {
+        await unmarkProjectPhaseComplete(projectId, 'evidence_gaps_completed_at');
+        // Invalidate project query to reflect the change in completion status
+        queryClient.invalidateQueries({ queryKey: ['project', projectId] });
+        queryClient.invalidateQueries({ queryKey: ['projects'] }); // Also invalidate list if needed
+      }
+
+      reset();
+      setSelectedFileName(null);
+      onEvidenceAdded();
       // TODO: Show success toast
     } catch (err: any) {
       console.error("Failed to add evidence:", err);
@@ -62,10 +98,24 @@ export function EvidenceForm({ boundaryControlId, onEvidenceAdded }: EvidenceFor
       // TODO: Show error toast
     } finally {
       setIsSubmitting(false);
+      setShowConfirmation(false); // Close confirmation dialog if open
+      setFormData(null); // Clear stored form data
+    }
+  };
+
+  // Initial submit handler: checks phase status and shows confirmation if needed
+  const onSubmit: SubmitHandler<EvidenceFormData> = (data) => {
+    // Check if the phase is already complete
+    if (project?.evidence_gaps_completed_at) {
+      setFormData(data); // Store data
+      setShowConfirmation(true); // Show confirmation dialog
+    } else {
+      performSubmit(data); // Submit directly if phase is not complete
     }
   };
 
   return (
+    <>
     <Card>
       <CardHeader>
         <CardTitle>Add New Evidence</CardTitle>
@@ -122,5 +172,25 @@ export function EvidenceForm({ boundaryControlId, onEvidenceAdded }: EvidenceFor
         </form>
       </CardContent>
     </Card>
+
+    {/* Confirmation Dialog */}
+    <AlertDialog open={showConfirmation} onOpenChange={setShowConfirmation}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Confirm Modification</AlertDialogTitle>
+          <AlertDialogDescription>
+            The "Evidence & Gaps" phase is marked as complete. Adding new evidence will reset this status. Do you want to proceed?
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={() => setFormData(null)} disabled={isSubmitting}>Cancel</AlertDialogCancel>
+          <AlertDialogAction onClick={() => formData && performSubmit(formData)} disabled={isSubmitting}>
+            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Confirm & Add
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }

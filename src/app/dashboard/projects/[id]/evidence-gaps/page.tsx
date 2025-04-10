@@ -3,7 +3,8 @@ import { cookies } from 'next/headers'
 import { redirect, notFound } from 'next/navigation'
 import { EvidenceGapsDashboard } from '@/components/evidence-gaps/evidence-gaps-dashboard';
 import { ProjectPage } from '@/components/projects/project-page';
-import { Project } from '@/types';
+import { getProjectById } from '@/services/project-service'; // Import service
+import { ProjectWithStatus } from '@/types'; // Import correct type
 
 interface EvidenceGapsPageProps {
   params: { id: string };
@@ -50,22 +51,20 @@ export default async function EvidenceGapsPage({ params }: EvidenceGapsPageProps
       console.error("Project ID is missing from params");
       notFound();
   }
-
-  const { data: project, error } = await supabase
-    .from('projects')
-    .select('*')
-    .eq('id', projectId) // Use extracted projectId
-    .single<Project>()
-
-  if (error || !project) {
-      console.error(`Error fetching project ${projectId}:`, error);
+ 
+   // Fetch processed project data using the service, passing the server client
+   const project: ProjectWithStatus | null = await getProjectById(projectId, supabase); // Pass supabase client here
+ 
+   if (!project) {
+      console.error(`Project ${projectId} not found or failed to fetch.`);
       notFound();
   }
   // --- End fetch project data ---
 
   return (
-    <ProjectPage project={project} id={projectId}>  {/* Use resolved projectId */}
-      <EvidenceGapsDashboard projectId={projectId} /> {/* Use resolved projectId */}
+    // Pass the processed project (ProjectWithStatus) to ProjectPage
+    <ProjectPage project={project} id={projectId}>  
+      <EvidenceGapsDashboard projectId={projectId} /> 
     </ProjectPage>
   );
 }

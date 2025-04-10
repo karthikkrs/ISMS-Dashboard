@@ -87,13 +87,7 @@ export function ProjectsFilter({ onFilterChange }: ProjectsFilterProps) {
         >
           All
         </Button>
-        <Button
-          variant={status === 'Not Started' ? 'default' : 'outline'}
-          size="sm"
-          onClick={() => handleStatusChange('Not Started')}
-        >
-          Not Started
-        </Button>
+      
         <Button
           variant={status === 'In Progress' ? 'default' : 'outline'}
           size="sm"

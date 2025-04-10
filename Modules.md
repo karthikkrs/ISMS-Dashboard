@@ -75,13 +75,13 @@ Feature 7.1: Control Listing
 User Story: As a project owner, I want to view all standard controls so that I can assess their applicability.
 
 Display controls table with search and filter
-Group controls by category
+Group controls by category and it should be a Drag And Drop to move them into relevant Boundaries 
 Show control details on demand
 
 Feature 7.2: Control Selection
-User Story: As a project owner, I want to mark controls as applicable or not applicable so that I can document my control selection.
+User Story: As a project owner, I want to mark controls as applicable or not applicable so that I can document my control selection for eacg Boundaries . The view must be grouped at Boundaries Level. Use Supabase MCP to ensure this is possible and align the database structure. 
 
-Add applicability toggle for each control
+Add a Drag and drop feature of controls into relevant BOundaries in scope so its easy for People to drag and drop it 
 Implement justification fields
 Save selections to Supabase
 
