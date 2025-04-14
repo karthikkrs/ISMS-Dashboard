@@ -1,4 +1,4 @@
-import { createServerClient } from '@supabase/ssr';
+import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { redirect, notFound } from 'next/navigation';
 import { QuestionnaireDashboard } from '@/components/questionnaire/questionnaire-dashboard'; // Adjust path if needed
@@ -7,16 +7,14 @@ import Link from 'next/link';
 import { ArrowLeftIcon } from 'lucide-react';
 import { Database } from '@/types/database.types'; // Import Database type
 
-interface QuestionnairePageProps {
-  params: {
-    id: string;
-  };
-}
-
-// Apply the fix suggested by the error: await params
-export default async function QuestionnairePage({ params }: { params: Promise<{ id: string }> }) { 
-  const resolvedParams = await params; // Await the promise
-  const { id: projectId } = resolvedParams; // Destructure from resolved params
+export default async function QuestionnairePage({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) { 
+  // Await params as shown in the documentation
+  const { id: projectId } = await params;
+  
   const cookieStore = await cookies(); // Await the cookies() function call
 
   const supabase = createServerClient<Database>(
@@ -27,17 +25,17 @@ export default async function QuestionnairePage({ params }: { params: Promise<{ 
         get(name: string) {
           return cookieStore.get(name)?.value;
         },
-        set(name: string, value: string, options: any) {
+        set(name: string, value: string, options: CookieOptions) {
           try {
             cookieStore.set({ name, value, ...options });
-          } catch (error) {
+          } catch {
             // Ignore errors in middleware
           }
         },
-        remove(name: string, options: any) {
+        remove(name: string, options: CookieOptions) {
           try {
             cookieStore.set({ name, value: '', ...options });
-          } catch (error) {
+          } catch {
             // Ignore errors in middleware
           }
         },

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query' // Added useMutation
+import { useQuery, useQueryClient } from '@tanstack/react-query' // Removed useMutation
 import { getStakeholders, deleteStakeholder } from '@/services/stakeholder-service'
 import { getProjectById, unmarkProjectPhaseComplete } from '@/services/project-service'; // Import project service functions
 import { Stakeholder, ProjectWithStatus } from '@/types' // Import Project type
@@ -255,7 +255,7 @@ export function StakeholdersTable({ projectId }: StakeholdersTableProps) {
           <AlertDialogHeader>
             <AlertDialogTitle>Confirm Modification</AlertDialogTitle>
             <AlertDialogDescription>
-              The "Stakeholders" phase is marked as complete. Deleting this stakeholder will reset the phase status. Are you sure you want to delete "{stakeholderToDelete?.name}"?
+              The &quot;Stakeholders&quot; phase is marked as complete. Deleting this stakeholder will reset the phase status. Are you sure you want to delete &quot;{stakeholderToDelete?.name}&quot;?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

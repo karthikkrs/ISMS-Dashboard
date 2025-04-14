@@ -1,4 +1,4 @@
-import { createServerClient } from '@supabase/ssr'
+import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { redirect, notFound } from 'next/navigation'
 import { ProjectForm } from '@/components/projects/project-form'
@@ -6,15 +6,13 @@ import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import { ArrowLeftIcon } from 'lucide-react'
 
-interface EditProjectPageProps {
-  params: {
-    id: string
-  }
-}
-
-export default async function EditProjectPage(props: EditProjectPageProps) {
-  // Await the params before accessing id
-  const { id } = await props.params
+export default async function EditProjectPage({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) {
+  // Await params as shown in the documentation
+  const { id } = await params;
   
   // Get the cookie store
   const cookieStore = await cookies()
@@ -28,18 +26,18 @@ export default async function EditProjectPage(props: EditProjectPageProps) {
         get(name: string) {
           return cookieStore.get(name)?.value
         },
-        set(name: string, value: string, options: any) {
+        set(name: string, value: string, options: CookieOptions) {
           try {
             cookieStore.set({ name, value, ...options })
-          } catch (error) {
+          } catch {
             // This will throw in middleware, but we can
             // safely ignore it for the purpose of authentication.
           }
         },
-        remove(name: string, options: any) {
+        remove(name: string, options: CookieOptions) {
           try {
             cookieStore.set({ name, value: '', ...options })
-          } catch (error) {
+          } catch {
             // This will throw in middleware, but we can
             // safely ignore it for the purpose of authentication.
           }

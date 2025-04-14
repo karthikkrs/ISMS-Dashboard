@@ -3,7 +3,7 @@
 import { ProjectWithStatus } from '@/types'
 import { format } from 'date-fns'
 import { Calendar, Clock, CheckCircle } from 'lucide-react' // Updated icons
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card' // Removed CardDescription
 import { Badge } from '@/components/ui/badge' // Import Badge
 import { Progress } from '@/components/ui/progress' // Import Progress
 

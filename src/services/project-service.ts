@@ -1,5 +1,6 @@
 import { createBrowserClient } from '@supabase/ssr';
-import { Project, ProjectWithStatus, ProjectStats, ProjectStatus } from '@/types'; // Import ProjectStatus
+import { Project, ProjectWithStatus, ProjectStats, ProjectStatus } from '@/types';
+import { SupabaseClient } from '@supabase/supabase-js';
 
 // Create a Supabase client for client components
 const supabase = createBrowserClient(
@@ -8,11 +9,7 @@ const supabase = createBrowserClient(
 );
 
 // --- Status Mapping --- (Removed 'Not Started' / 0)
-const statusMap: { [key: number]: ProjectStatus } = {
-  1: 'In Progress',
-  2: 'Completed',
-  3: 'On Hold',
-};
+// Removed unused statusMap
 
 const reverseStatusMap: { [key in ProjectStatus]: number } = {
   'In Progress': 1,
@@ -20,11 +17,7 @@ const reverseStatusMap: { [key in ProjectStatus]: number } = {
   'On Hold': 3,
 };
 
-const mapDbStatusToString = (dbStatus: number | null | undefined): ProjectStatus => {
-  // Ensure dbStatus is treated as a number, default to 1 ('In Progress') if null/undefined
-  const numericStatus = typeof dbStatus === 'number' ? dbStatus : 1; // Default to 1
-  return statusMap[numericStatus] || 'In Progress'; // Default to 'In Progress' if invalid number
-};
+// Removed unused mapDbStatusToString function
 
 const mapStringStatusToDb = (stringStatus: ProjectStatus): number => {
   // Default to 1 ('In Progress') if invalid string or 'Not Started' is somehow passed
@@ -189,7 +182,7 @@ export const createProject = async (projectCreateData: Omit<Project, 'id' | 'use
 
 
 // Get a single project by ID (accepts optional client for server-side use)
-export const getProjectById = async (id: string, client?: any): Promise<ProjectWithStatus | null> => {
+export const getProjectById = async (id: string, client?: SupabaseClient): Promise<ProjectWithStatus | null> => {
   const supabaseClient = client || supabase; // Use passed client or default browser client
   
   const { data, error } = await supabaseClient
@@ -220,10 +213,10 @@ export const updateProject = async (id: string, projectUpdateData: Partial<Omit<
     throw new Error('User not authenticated');
   }
 
-  // First check if the project belongs to the current user
-  const { data: existingProject, error: fetchError } = await supabase
+  // First check if the project belongs to the current user (only verify, don't store the result)
+  const { error: fetchError } = await supabase
     .from('projects')
-    .select('id, user_id') // Select only necessary fields
+    .select('id') // Select only id to verify existence and ownership
     .eq('id', id)
     .eq('user_id', user.id)
     .single();
@@ -269,10 +262,10 @@ export const deleteProject = async (id: string): Promise<void> => {
     throw new Error('User not authenticated');
   }
 
-  // First check if the project belongs to the current user
-  const { data: existingProject, error: fetchError } = await supabase
+  // First check if the project belongs to the current user (only verify, don't store the result)
+  const { error: fetchError } = await supabase
     .from('projects')
-    .select('id, user_id') // Select only necessary fields
+    .select('id') // Select only id to verify existence and ownership
     .eq('id', id)
     .eq('user_id', user.id)
     .single();
@@ -300,10 +293,10 @@ export const markProjectPhaseComplete = async (projectId: string, phase: keyof P
    const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('User not authenticated');
 
-  // Check ownership
-  const { data: existingProject, error: fetchError } = await supabase
+  // Check ownership (only verify, don't store the result)
+  const { error: fetchError } = await supabase
     .from('projects')
-    .select('id, user_id')
+    .select('id') // Select only id to verify existence and ownership
     .eq('id', projectId)
     .eq('user_id', user.id)
     .single();
@@ -350,10 +343,8 @@ export const markProjectPhaseComplete = async (projectId: string, phase: keyof P
     return processProjectData(data as Project);
   } catch (processingError) {
     console.error(`Error processing project data after phase update for ${projectId}:`, processingError);
-    throw processingError; // Corrected variable name
+    throw processingError;
   }
-
-  // This line is now unreachable due to the try/catch, removing it.
 };
 
 // Type for valid phase column names
@@ -366,10 +357,10 @@ export const unmarkProjectPhaseComplete = async (projectId: string, phase: Proje
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('User not authenticated');
 
-  // Check ownership (optional but good practice)
-  const { data: existingProject, error: fetchError } = await supabase
+  // Check ownership (only verify, don't store the result)
+  const { error: fetchError } = await supabase
     .from('projects')
-    .select('id, user_id')
+    .select('id') // Select only id to verify existence and ownership
     .eq('id', projectId)
     .eq('user_id', user.id)
     .single();

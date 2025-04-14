@@ -1,21 +1,21 @@
-"use client"
+"use client";
 
-import * as React from "react"
-import { useRouter } from "next/navigation"
-import { useSearchParams } from "next/navigation"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { useForm } from "react-hook-form"
-import * as z from "zod"
-import { createBrowserClient } from "@supabase/ssr"
+import * as React from "react";
+import { useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import * as z from "zod";
+import { createBrowserClient } from "@supabase/ssr";
 
-import { cn } from "@/lib/utils"
-import { buttonVariants } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Icons } from "@/components/icons"
+import { cn } from "@/lib/utils";
+import { buttonVariants } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Icons } from "@/components/icons";
 
 interface UserAuthFormProps extends React.HTMLAttributes<HTMLDivElement> {
-  isSignIn: boolean
+  isSignIn: boolean;
 }
 
 const formSchema = z.object({
@@ -25,15 +25,15 @@ const formSchema = z.object({
   password: z.string().min(8, {
     message: "Password must be at least 8 characters long.",
   }),
-})
+});
 
 export function UserAuthForm({ className, isSignIn = true, ...props }: UserAuthFormProps) {
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const callbackUrl = searchParams.get("callbackUrl") || "/dashboard"
-  const [isLoading, setIsLoading] = React.useState<boolean>(false)
-  const [error, setError] = React.useState<string | null>(null)
-  const [success, setSuccess] = React.useState<string | null>(null)
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
+  const [isLoading, setIsLoading] = React.useState<boolean>(false);
+  const [error, setError] = React.useState<{ message?: string | undefined } | null>(null);
+  const [success, setSuccess] = React.useState<{ message?: string | undefined } | null>(null);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -41,56 +41,59 @@ export function UserAuthForm({ className, isSignIn = true, ...props }: UserAuthF
       email: "",
       password: "",
     },
-  })
+  });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    setIsLoading(true)
-    setError(null)
-    setSuccess(null)
+    setIsLoading(true);
+    setError(null);
+    setSuccess(null);
 
     try {
       const supabase = createBrowserClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      )
+      );
 
       if (isSignIn) {
-        // Sign in with existing account
         const { error } = await supabase.auth.signInWithPassword({
           email: values.email,
           password: values.password,
-        })
+        });
 
         if (error) {
-          setError(error.message)
-          return
+          setError({ message: error.message });
+          return;
         }
 
-        router.refresh()
-        router.push(callbackUrl)
+        router.refresh();
+        router.push(callbackUrl);
       } else {
-        // Create new account
         const { error } = await supabase.auth.signUp({
           email: values.email,
           password: values.password,
           options: {
             emailRedirectTo: `${window.location.origin}/auth/callback?next=${callbackUrl}`,
-          }
-        })
+          },
+        });
 
         if (error) {
-          setError(error.message)
-          return
+          setError({ message: error.message });
+          return;
         }
 
-        setSuccess("Check your email for a confirmation link to complete your registration.")
-        form.reset()
+        setSuccess({ message: "Check your email for a confirmation link to complete your registration." });
+        form.reset();
       }
-    } catch (error) {
-      setError("An unexpected error occurred. Please try again.")
-      console.error("Authentication error:", error)
+    } catch (error: unknown) {
+      // Safely handle the unknown error type
+      const errorMessage = error instanceof Error 
+        ? error.message 
+        : "An unexpected error occurred. Please try again.";
+        
+      setError({ message: errorMessage });
+      console.error("Authentication error:", error);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
   }
 
@@ -98,12 +101,12 @@ export function UserAuthForm({ className, isSignIn = true, ...props }: UserAuthF
     <div className={cn("grid gap-6", className)} {...props}>
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative" role="alert">
-          <span className="block sm:inline">{error}</span>
+          <span className="block sm:inline">{error.message || ""}</span>
         </div>
       )}
       {success && (
         <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded relative" role="alert">
-          <span className="block sm:inline">{success}</span>
+          <span className="block sm:inline">{success.message || ""}</span>
         </div>
       )}
       <form onSubmit={form.handleSubmit(onSubmit)}>
@@ -156,5 +159,5 @@ export function UserAuthForm({ className, isSignIn = true, ...props }: UserAuthF
         </div>
       </form>
     </div>
-  )
+  );
 }

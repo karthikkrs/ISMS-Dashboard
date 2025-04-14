@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useState } from 'react';
+import { toast } from 'sonner';
 import { useForm, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'; // Import query/mutation hooks
+import { useQuery, useQueryClient } from '@tanstack/react-query'; // Removed useMutation
 import { createEvidence } from '@/services/evidence-service';
 import { getProjectById, unmarkProjectPhaseComplete } from '@/services/project-service'; // Import project service functions
 import { ProjectWithStatus } from '@/types'; // Import Project type
@@ -91,11 +92,18 @@ export function EvidenceForm({ projectId, boundaryControlId, onEvidenceAdded }: 
       reset();
       setSelectedFileName(null);
       onEvidenceAdded();
-      // TODO: Show success toast
-    } catch (err: any) {
+      toast.success('Evidence added successfully', {
+        description: `${data.title} has been added to the evidence list.`
+      });
+    } catch (err: unknown) {
       console.error("Failed to add evidence:", err);
-      setError(err.message || 'Failed to add evidence. Please try again.');
-      // TODO: Show error toast
+      const errorMessage = err instanceof Error 
+          ? err.message 
+          : 'Failed to add evidence. Please try again.';
+      setError(errorMessage);
+      toast.error('Error adding evidence', {
+        description: errorMessage,
+      });
     } finally {
       setIsSubmitting(false);
       setShowConfirmation(false); // Close confirmation dialog if open
@@ -179,7 +187,7 @@ export function EvidenceForm({ projectId, boundaryControlId, onEvidenceAdded }: 
         <AlertDialogHeader>
           <AlertDialogTitle>Confirm Modification</AlertDialogTitle>
           <AlertDialogDescription>
-            The "Evidence & Gaps" phase is marked as complete. Adding new evidence will reset this status. Do you want to proceed?
+            The &quot;Evidence &amp; Gaps&quot; phase is marked as complete. Adding new evidence will reset this status. Do you want to proceed?
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

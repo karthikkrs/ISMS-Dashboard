@@ -7,10 +7,24 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, AlertCircle, Info } from 'lucide-react';
-import { Tables } from '@/types/database.types'; // Import base types
 
-// Define the type for a threat scenario, assuming types are regenerated
-type ThreatScenario = Tables<'threat_scenarios'>;
+// Create a completely new type rather than extending to avoid conflicts
+interface ThreatScenarioWithRisk {
+  id: string;
+  name: string;
+  description: string | null;
+  project_id: string;
+  gap_id: string | null;
+  threat_actor_type: string | null;
+  relevant_iso_domains: string[] | null;
+  created_at: string;
+  updated_at: string;
+  // CRQ fields
+  sle: number | null;
+  aro: number | null;
+  mitre_techniques: string[] | null;
+  ale?: number | null; // For calculated annualized loss expectancy
+}
 
 interface DynamicCrqSummaryProps {
   projectId: string;
@@ -31,7 +45,7 @@ const getAleBadgeVariant = (ale: number | null): "destructive" | "default" | "se
 };
 
 export function DynamicCrqSummary({ projectId }: DynamicCrqSummaryProps) {
-  const { data: scenarios = [], isLoading, error } = useQuery<ThreatScenario[]>({
+  const { data: scenarios = [], isLoading, error } = useQuery<ThreatScenarioWithRisk[]>({
     queryKey: ['threatScenarios', projectId],
     queryFn: () => getThreatScenariosForProject(projectId),
     enabled: !!projectId,
@@ -57,7 +71,7 @@ export function DynamicCrqSummary({ projectId }: DynamicCrqSummaryProps) {
           <CardTitle className="text-destructive">Error Loading CRQ Data</CardTitle>
         </CardHeader>
         <CardContent className="text-destructive flex items-center gap-2">
-           <AlertCircle className="h-4 w-4" /> {error.message}
+           <AlertCircle className="h-4 w-4" /> {error instanceof Error ? error.message : 'Unknown error'}
         </CardContent>
       </Card>
     );
@@ -81,15 +95,13 @@ export function DynamicCrqSummary({ projectId }: DynamicCrqSummaryProps) {
 
   // Calculate ALE for scenarios that have both SLE and ARO
   const scenariosWithAle = scenarios.map(scenario => {
-    // Use type assertion until types are fully updated/recognized
-    const sle = (scenario as any).sle;
-    const aro = (scenario as any).aro;
+    const sle = scenario.sle;
+    const aro = scenario.aro;
     const ale = (sle !== null && aro !== null)
       ? sle * aro
       : null;
     return { ...scenario, ale };
-     // Use type assertion until types are fully updated/recognized
-  }).filter(s => (s as any).sle !== null && (s as any).aro !== null); // Optionally filter to only show quantifiable risks
+  }).filter(s => s.sle !== null && s.aro !== null);
 
    if (scenariosWithAle.length === 0) {
      return (
@@ -127,27 +139,23 @@ export function DynamicCrqSummary({ projectId }: DynamicCrqSummaryProps) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {scenariosWithAle.map((item) => {
-              // Use type assertion until types are fully updated/recognized
-              const typedItem = item as any; 
-              return (
-              <TableRow key={typedItem.id}>
-                <TableCell className="font-medium">{typedItem.name}</TableCell>
-                <TableCell className="text-right">{formatCurrency(typedItem.sle)}</TableCell>
-                <TableCell className="text-right">{typedItem.aro?.toFixed(2) ?? 'N/A'}</TableCell>
+            {scenariosWithAle.map((item) => (
+              <TableRow key={item.id}>
+                <TableCell className="font-medium">{item.name}</TableCell>
+                <TableCell className="text-right">{formatCurrency(item.sle)}</TableCell>
+                <TableCell className="text-right">{item.aro?.toFixed(2) ?? 'N/A'}</TableCell>
                 <TableCell className="text-right">
-                  <Badge variant={getAleBadgeVariant(typedItem.ale)}>{formatCurrency(typedItem.ale)}</Badge>
+                  <Badge variant={getAleBadgeVariant(item.ale)}>{formatCurrency(item.ale)}</Badge>
                 </TableCell>
                 <TableCell className="text-xs">
-                  {typedItem.mitre_techniques && typedItem.mitre_techniques.length > 0 
-                    ? typedItem.mitre_techniques.join(', ') 
+                  {item.mitre_techniques && item.mitre_techniques.length > 0 
+                    ? item.mitre_techniques.join(', ') 
                     : <span className="text-muted-foreground">N/A</span>}
                 </TableCell>
                 {/* Optional: Display linked Gap ID */}
-                {/* <TableCell>{typedItem.gap_id ?? 'N/A'}</TableCell> */}
+                {/* <TableCell>{item.gap_id ?? 'N/A'}</TableCell> */}
               </TableRow>
-            ); // Add missing closing parenthesis
-            })}
+            ))}
           </TableBody>
         </Table>
       </CardContent>

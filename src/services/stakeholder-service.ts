@@ -93,10 +93,10 @@ export const updateStakeholder = async (
     throw new Error('User not authenticated')
   }
   
-  // First check if the stakeholder belongs to the current user
-  const { data: existingStakeholder, error: fetchError } = await supabase
+  // First verify if the stakeholder belongs to the current user
+  const { error: fetchError } = await supabase
     .from('stakeholders')
-    .select('*')
+    .select('id') // Select only the ID to verify existence and ownership
     .eq('id', id)
     .eq('user_id', user.id)
     .single()
@@ -131,10 +131,10 @@ export const deleteStakeholder = async (id: string): Promise<void> => {
     throw new Error('User not authenticated')
   }
   
-  // First check if the stakeholder belongs to the current user
-  const { data: existingStakeholder, error: fetchError } = await supabase
+  // First verify if the stakeholder belongs to the current user
+  const { error: fetchError } = await supabase
     .from('stakeholders')
-    .select('*')
+    .select('id') // Select only the ID to verify existence and ownership
     .eq('id', id)
     .eq('user_id', user.id)
     .single()

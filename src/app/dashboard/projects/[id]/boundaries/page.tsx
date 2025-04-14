@@ -1,4 +1,4 @@
-import { createServerClient } from '@supabase/ssr'
+import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { redirect, notFound } from 'next/navigation'
 import { BoundariesDashboard } from '@/components/boundaries/boundaries-dashboard'
@@ -6,15 +6,14 @@ import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import { ArrowLeftIcon } from 'lucide-react'
 
-interface BoundariesPageProps {
-  params: {
-    id: string
-  }
-}
-
-export default async function BoundariesPage({ params }: BoundariesPageProps) {
-  // Get the id from params
-  const { id } = await params
+// Type definition that exactly matches Next.js 15 documentation
+export default async function BoundariesPage({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) {
+  // Await params as shown in the documentation
+  const { id } = await params;
   
   // Get the cookie store
   const cookieStore = await cookies()
@@ -28,18 +27,18 @@ export default async function BoundariesPage({ params }: BoundariesPageProps) {
         get(name: string) {
           return cookieStore.get(name)?.value
         },
-        set(name: string, value: string, options: any) {
+        set(name: string, value: string, options: CookieOptions) {
           try {
             cookieStore.set({ name, value, ...options })
-          } catch (error) {
+          } catch {
             // This will throw in middleware, but we can
             // safely ignore it for the purpose of authentication.
           }
         },
-        remove(name: string, options: any) {
+        remove(name: string, options: CookieOptions) {
           try {
             cookieStore.set({ name, value: '', ...options })
-          } catch (error) {
+          } catch {
             // This will throw in middleware, but we can
             // safely ignore it for the purpose of authentication.
           }

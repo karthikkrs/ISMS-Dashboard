@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { toast } from 'sonner'; // Import toast for notifications
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -10,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Plus, XCircle } from 'lucide-react';
+import { Loader2, XCircle } from 'lucide-react';
 import { TablesInsert, Tables } from '@/types/database.types'; // Import generated types
 // Import the actual service functions
 import { createThreatScenario, updateThreatScenario } from '@/services/threat-service'; 
@@ -41,12 +42,19 @@ type ThreatScenarioSubmitData = Omit<ThreatScenarioFormInput, 'mitre_techniques_
 };
 
 type ThreatScenario = Tables<'threat_scenarios'>;
-type ThreatScenarioInsert = TablesInsert<'threat_scenarios'>;
+
+// Create a new type with the extra properties instead of extending
+type ExtendedThreatScenario = ThreatScenario & {
+  // Additional properties that might not be in the base type
+  sle?: number | null;
+  aro?: number | null;
+  mitre_techniques?: string[] | null;
+}
 
 interface ThreatScenarioFormProps {
   projectId: string;
-  gapId?: string; // Add gapId prop here
-  threatScenario?: ThreatScenario; // For editing
+  gapId?: string; 
+  threatScenario?: ExtendedThreatScenario; // For editing - use extended type
   isEditing?: boolean;
   onSuccess?: (scenario: ThreatScenario) => void; // Callback on success
   onCancel?: () => void;
@@ -55,7 +63,7 @@ interface ThreatScenarioFormProps {
 
 export function ThreatScenarioForm({
   projectId,
-  gapId, // Ensure gapId is destructured
+  gapId, 
   threatScenario,
   isEditing = false,
   onSuccess,
@@ -74,23 +82,36 @@ export function ThreatScenarioForm({
       // relevant_iso_domains: threatScenario?.relevant_iso_domains ?? null, // Keep commented out for now
       // Add new defaults matching ThreatScenarioFormInput
       // Access existing threatScenario properties carefully, convert numbers to string for form
-      sle: (threatScenario as any)?.sle?.toString() ?? null, 
-      aro: (threatScenario as any)?.aro?.toString() ?? null,
-      mitre_techniques_input: (threatScenario as any)?.mitre_techniques?.join(', ') ?? '', // Use input field name
-      gap_id: (threatScenario as any)?.gap_id ?? gapId ?? null, // Use prop if creating, existing if editing
+      sle: threatScenario?.sle?.toString() ?? null, 
+      aro: threatScenario?.aro?.toString() ?? null,
+      mitre_techniques_input: threatScenario?.mitre_techniques?.join(', ') ?? '', // Use input field name
+      gap_id: threatScenario?.gap_id ?? gapId ?? null, // Use prop if creating, existing if editing
     },
   });
 
   // The data passed to mutationFn needs to match the expected DB insert/update type (ThreatScenarioSubmitData)
   // We'll construct this manually in onSubmit before calling mutate
   const mutationFn = isEditing && threatScenario
-    ? (data: ThreatScenarioSubmitData) => updateThreatScenario(threatScenario.id, { ...data, project_id: projectId } as any) // Use 'as any' until DB types updated
-    : (data: ThreatScenarioSubmitData) => createThreatScenario({ ...data, project_id: projectId, gap_id: data.gap_id ?? gapId } as any); // Use 'as any' until DB types updated
+    ? (data: ThreatScenarioSubmitData) => updateThreatScenario(
+        threatScenario.id, 
+        { ...data, project_id: projectId } as TablesInsert<'threat_scenarios'>
+      )
+    : (data: ThreatScenarioSubmitData) => createThreatScenario(
+        { ...data, project_id: projectId, gap_id: data.gap_id ?? gapId } as TablesInsert<'threat_scenarios'>
+      );
 
   const mutation = useMutation({
     mutationFn,
     onSuccess: (savedScenario) => {
       setError(null);
+      
+      // Show success toast notification
+      toast.success(
+        isEditing 
+          ? 'Threat scenario updated successfully' 
+          : 'Threat scenario created successfully'
+      );
+      
       // Reset form with default values matching ThreatScenarioFormInput
       reset({ 
         name: '', 
@@ -109,7 +130,12 @@ export function ThreatScenarioForm({
     },
     onError: (err) => {
       console.error(`Error ${isEditing ? 'updating' : 'creating'} threat scenario:`, err);
-      setError(`Failed to ${isEditing ? 'update' : 'create'} threat scenario: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      const errorMessage = `Failed to ${isEditing ? 'update' : 'create'} threat scenario: ${err instanceof Error ? err.message : 'Unknown error'}`;
+      
+      // Show error toast notification
+      toast.error(errorMessage);
+      
+      setError(errorMessage);
     },
   });
 
@@ -145,72 +171,66 @@ export function ThreatScenarioForm({
     mutation.mutate(submitData);
   };
 
+  const formContent = (
+    <>
+      <div className="space-y-2">
+        <Label htmlFor="name">Scenario Name</Label>
+        <Input id="name" {...register('name')} placeholder="e.g., Ransomware Attack, Insider Data Theft" />
+        {errors.name && <p className="text-xs text-destructive mt-1">{errors.name.message}</p>}
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="description">Description (Optional)</Label>
+        <Textarea id="description" {...register('description')} placeholder="Describe the threat event..." />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="threat_actor_type">Threat Actor Type (Optional)</Label>
+        <Input id="threat_actor_type" {...register('threat_actor_type')} placeholder="e.g., External Hacker, Disgruntled Employee" />
+      </div>
+      
+      {/* CRQ Fields */}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="sle">Single Loss Expectancy (SLE) ($)</Label>
+          <Input id="sle" type="number" {...register('sle')} placeholder="e.g., 150000" /> 
+          {errors.sle && <p className="text-xs text-destructive mt-1">{errors.sle.message}</p>}
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="aro">Annualized Rate of Occurrence (ARO)</Label>
+          <Input id="aro" type="number" step="0.01" {...register('aro')} placeholder="e.g., 0.2 (1 in 5 years)" />
+          {errors.aro && <p className="text-xs text-destructive mt-1">{errors.aro.message}</p>}
+        </div>
+      </div>
+
+      {/* MITRE Techniques Field */}
+      <div className="space-y-2">
+        <Label htmlFor="mitre_techniques_input">MITRE ATT&CK Techniques (Optional, comma-separated)</Label>
+        <Textarea id="mitre_techniques_input" {...register('mitre_techniques_input')} placeholder="e.g., T1566, T1190, T1059" />
+        {errors.mitre_techniques_input && <p className="text-xs text-destructive mt-1">{errors.mitre_techniques_input.message}</p>}
+      </div>
+
+      {error && (
+         <div className="text-sm text-destructive flex items-center gap-2 bg-red-50 p-3 rounded-md border border-red-200">
+           <XCircle className="h-4 w-4" />
+           {error}
+         </div>
+       )}
+    </>
+  );
+
   return (
-    <Card className="w-full max-w-lg mx-auto"> {/* Adjust width as needed */}
-      <CardHeader>
-        <CardTitle>{isEditing ? 'Edit Threat Scenario' : 'Add New Threat Scenario'}</CardTitle>
-        <CardDescription>
-          Define a potential threat event relevant to your assets.
-        </CardDescription>
-      </CardHeader>
-      <form onSubmit={handleSubmit(onSubmit)}>
+    // Wrap the form around the entire card
+    <form onSubmit={handleSubmit(onSubmit)}>
+      <Card className="w-full max-w-lg mx-auto">
+        <CardHeader>
+          <CardTitle>{isEditing ? 'Edit Threat Scenario' : 'Add New Threat Scenario'}</CardTitle>
+          <CardDescription>
+            Define a potential threat event relevant to your assets.
+          </CardDescription>
+        </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="name">Scenario Name</Label>
-            <Input id="name" {...register('name')} placeholder="e.g., Ransomware Attack, Insider Data Theft" />
-            {errors.name && <p className="text-xs text-destructive mt-1">{errors.name.message}</p>}
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="description">Description (Optional)</Label>
-            <Textarea id="description" {...register('description')} placeholder="Describe the threat event..." />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="threat_actor_type">Threat Actor Type (Optional)</Label>
-            <Input id="threat_actor_type" {...register('threat_actor_type')} placeholder="e.g., External Hacker, Disgruntled Employee" />
-            {/* Consider using a Select component if you have predefined types */}
-          </div>
-          
-          {/* TODO: Add input for relevant_iso_domains (e.g., multi-select or tags input) */}
-          {/* For now, leaving it out for simplicity */}
-          {/* <div className="space-y-2">
-            <Label htmlFor="relevant_iso_domains">Relevant ISO Domains (Optional)</Label>
-            <Input id="relevant_iso_domains" {...register('relevant_iso_domains')} placeholder="Comma-separated domains" />
-          </div> */}
-
-          {/* CRQ Fields - Use type="text" for manual parsing, or keep type="number" and rely on browser */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="sle">Single Loss Expectancy (SLE) ($)</Label>
-              {/* Using type="number" might still be better UX, but parsing needs care */}
-              <Input id="sle" type="number" {...register('sle')} placeholder="e.g., 150000" /> 
-              {errors.sle && <p className="text-xs text-destructive mt-1">{errors.sle.message}</p>}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="aro">Annualized Rate of Occurrence (ARO)</Label>
-              <Input id="aro" type="number" step="0.01" {...register('aro')} placeholder="e.g., 0.2 (1 in 5 years)" />
-              {errors.aro && <p className="text-xs text-destructive mt-1">{errors.aro.message}</p>}
-            </div>
-          </div>
-
-          {/* MITRE Techniques Field */}
-          <div className="space-y-2">
-            <Label htmlFor="mitre_techniques_input">MITRE ATT&CK Techniques (Optional, comma-separated)</Label>
-            <Textarea id="mitre_techniques_input" {...register('mitre_techniques_input')} placeholder="e.g., T1566, T1190, T1059" />
-            {/* Consider a more advanced input later */}
-            {errors.mitre_techniques_input && <p className="text-xs text-destructive mt-1">{errors.mitre_techniques_input.message}</p>}
-          </div>
-
-          {/* Hidden input for gap_id if needed, though it's handled by the schema */}
-          {/* <input type="hidden" {...register('gap_id')} /> */}
-
-          {error && (
-             <div className="text-sm text-destructive flex items-center gap-2 bg-red-50 p-3 rounded-md border border-red-200">
-               <XCircle className="h-4 w-4" />
-               {error}
-             </div>
-           )}
+          {formContent}
         </CardContent>
         <CardFooter className="flex justify-end gap-2">
           <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>
@@ -221,7 +241,7 @@ export function ThreatScenarioForm({
             {isEditing ? 'Update Scenario' : 'Add Scenario'}
           </Button>
         </CardFooter>
-      </form>
-    </Card>
+      </Card>
+    </form>
   );
 }

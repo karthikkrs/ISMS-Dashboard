@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'; // Import mutation hooks
+import { useQuery, useQueryClient } from '@tanstack/react-query'; // Removed useMutation
 import { getGapsForBoundaryControl, deleteGap } from '@/services/gap-service';
 import { getProjectById, unmarkProjectPhaseComplete } from '@/services/project-service'; // Import project service functions
 import { Gap, ProjectWithStatus } from '@/types'; // Import Project type
@@ -29,9 +29,9 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogTrigger,
-  DialogFooter, // If needed for form buttons inside dialog
-  DialogClose, // If needed for cancel button inside dialog
+  // DialogFooter and DialogClose not needed
 } from "@/components/ui/dialog";
 
 // Helper function to determine badge variant based on severity/status
@@ -101,7 +101,7 @@ export function GapList({ projectId, boundaryControlId, onEditGap }: GapListProp
 
       refetch(); // Refetch the gap list
       // TODO: Show success toast
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Deletion failed:", err);
       // TODO: Show error toast
     } finally {
@@ -209,10 +209,12 @@ export function GapList({ projectId, boundaryControlId, onEditGap }: GapListProp
                        </Button>
                      </DialogTrigger>
                      <DialogContent className="sm:max-w-[600px]"> {/* Adjust width */}
-                       {/* DialogHeader might be redundant if form has its own */}
-                       {/* <DialogHeader>
-                         <DialogTitle>Create Threat Scenario for Gap</DialogTitle>
-                       </DialogHeader> */}
+                       <DialogHeader>
+                         <DialogTitle>Create Threat Scenario</DialogTitle>
+                         <DialogDescription>
+                           Create a new threat scenario associated with this gap
+                         </DialogDescription>
+                       </DialogHeader>
                        <ThreatScenarioForm
                          projectId={projectId}
                          gapId={gap.id} // Pass gapId
@@ -242,7 +244,7 @@ export function GapList({ projectId, boundaryControlId, onEditGap }: GapListProp
           <AlertDialogHeader>
             <AlertDialogTitle>Confirm Modification</AlertDialogTitle>
             <AlertDialogDescription>
-              The "Evidence & Gaps" phase is marked as complete. Deleting this gap will reset this status. Are you sure you want to delete "{gapToDelete?.title}"?
+              The &quot;Evidence &amp; Gaps&quot; phase is marked as complete. Deleting this gap will reset this status. Are you sure you want to delete &quot;{gapToDelete?.title}&quot;?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

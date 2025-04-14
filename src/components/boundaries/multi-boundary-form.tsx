@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react' // Added useEffect
+import { useState } from 'react' // Removed useEffect
 import { useRouter } from 'next/navigation'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'; // Import query/mutation hooks
+import { useQuery, useQueryClient } from '@tanstack/react-query'; // Removed useMutation
 import { Button } from '@/components/ui/button'
 import {
   AlertDialog,
@@ -60,7 +60,7 @@ const multiBoundaryFormSchema = z.object({
   boundaries: z.array(boundarySchema).min(1, 'At least one boundary is required')
 })
 
-type BoundaryInput = z.infer<typeof boundarySchema>
+// Removed unused BoundaryInput type
 type MultiBoundaryFormValues = z.infer<typeof multiBoundaryFormSchema>
 type Boundary = Tables<'boundaries'>; // Define Boundary using Tables helper
 
@@ -136,7 +136,15 @@ export function MultiBoundaryForm({ projectId, boundary, isEditing = false, onSu
          await updateBoundary(boundary.id, data.boundaries[0])
        } else {
          for (const boundaryData of data.boundaries) {
-           await createBoundary(projectId, boundaryData)
+           // Ensure required fields are passed correctly to createBoundary
+           await createBoundary(projectId, {
+             name: boundaryData.name, // Ensure name is required
+             type: boundaryData.type, // Ensure type is required
+             description: boundaryData.description,
+             included: boundaryData.included === false ? false : true, // Ensure included is always boolean with default true
+             notes: boundaryData.notes,
+             // Note: asset_value fields will be handled by the boundary-service.ts
+           })
          }
        }
 
@@ -248,20 +256,20 @@ export function MultiBoundaryForm({ projectId, boundary, isEditing = false, onSu
           
           <div className="rounded-lg border shadow-sm overflow-hidden">
             <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/50 border-b">
+              <TableHeader>{/* Wrap in fragment to avoid whitespace */}
+                <TableRow className="bg-muted/50 border-b">{/* Use fragments to avoid whitespace nodes */}
                   <TableHead>Name</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Description</TableHead>
-                  <TableHead>Asset Value (Qual)</TableHead> {/* New Header */}
-                  <TableHead>Asset Value (Quant)</TableHead> {/* New Header */}
+                  <TableHead>Asset Value (Qual)</TableHead>{/* Remove spaces before comment */}
+                  <TableHead>Asset Value (Quant)</TableHead>{/* Remove spaces before comment */}
                   <TableHead>In Scope</TableHead>
                   <TableHead className="w-[80px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
-              <TableBody>
+              <TableBody>{/* Wrap in fragment to avoid whitespace */}
                 {fields.map((field, index) => (
-                  <TableRow key={field.id} className="hover:bg-muted/20 transition-colors">
+                  <TableRow key={field.id} className="hover:bg-muted/20 transition-colors">{/* Avoid whitespace with fragment */}
                     <TableCell>
                       <Input
                         placeholder="Enter name"
@@ -318,7 +326,13 @@ export function MultiBoundaryForm({ projectId, boundary, isEditing = false, onSu
                        <Select
                          defaultValue={field.asset_value_qualitative ?? undefined}
                          onValueChange={(value) => {
-                           const event = { target: { value: value === 'null' ? null : value } } as any; // Handle null
+                           // Fix typing by using proper type casting
+                           type SelectEvent = { target: { value: 'High' | 'Medium' | 'Low' | null } };
+                           const event = { 
+                             target: { 
+                               value: value === 'null' ? null : value as 'High' | 'Medium' | 'Low' 
+                             } 
+                           } as SelectEvent;
                            register(`boundaries.${index}.asset_value_qualitative`).onChange(event);
                          }}
                        >
@@ -445,7 +459,7 @@ export function MultiBoundaryForm({ projectId, boundary, isEditing = false, onSu
           <AlertDialogHeader>
             <AlertDialogTitle>Confirm Modification</AlertDialogTitle>
             <AlertDialogDescription>
-              The "Boundaries" phase is marked as complete. {isEditing ? 'Updating this boundary' : 'Adding new boundaries'} will reset this status. Do you want to proceed?
+              The &quot;Boundaries&quot; phase is marked as complete. {isEditing ? 'Updating this boundary' : 'Adding new boundaries'} will reset this status. Do you want to proceed?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

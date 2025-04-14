@@ -1,4 +1,4 @@
-import { createServerClient } from '@supabase/ssr';
+import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { redirect, notFound } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -17,9 +17,14 @@ import { DynamicCrqSummary } from '@/components/reports/DynamicCrqSummary'; // I
 // import { CrqSummaryTable } from '@/components/reports/crq-summary-table'; // Keep commented for now
 
 // Use the standard Server Component signature again
-export default async function ReportsPage({ params }: { params: { id: string } }) {
+export default async function ReportsPage({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) {
+  // Await params as shown in the documentation
+  const { id: projectId } = await params;
   
-  const projectId = params.id; // Access id directly
   const cookieStore = await cookies(); // Await cookies
 
   const supabase = createServerClient<Database>(
@@ -27,9 +32,19 @@ export default async function ReportsPage({ params }: { params: { id: string } }
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
         cookies: {
-          get(name: string) { return cookieStore.get(name)?.value },
-          set(name: string, value: string, options: any) { try { cookieStore.set({ name, value, ...options }) } catch (error) {} },
-          remove(name: string, options: any) { try { cookieStore.set({ name, value: '', ...options }) } catch (error) {} },
+          get(name: string) { 
+            return cookieStore.get(name)?.value 
+          },
+          set(name: string, value: string, options: CookieOptions) { 
+            try { 
+              cookieStore.set({ name, value, ...options }) 
+            } catch {} 
+          },
+          remove(name: string, options: CookieOptions) { 
+            try { 
+              cookieStore.set({ name, value: '', ...options }) 
+            } catch {} 
+          },
         },
       }
     );

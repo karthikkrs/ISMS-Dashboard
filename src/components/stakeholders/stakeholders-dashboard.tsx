@@ -3,15 +3,12 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getProjectById, markProjectPhaseComplete } from '@/services/project-service';
-import { getStakeholders } from '@/services/stakeholder-service'; // Use correct function name
-import { ProjectWithStatus, Stakeholder } from '@/types'; // Import Stakeholder type
+import { ProjectWithStatus } from '@/types';
 import { StakeholdersTable } from './stakeholders-table'; 
-import { StakeholderForm } from './stakeholder-form'; 
-import Link from 'next/link'; // Import Link
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Loader2, CheckCircle, AlertCircle, PlusCircle, ArrowRight } from 'lucide-react'; // Import ArrowRight
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Loader2, CheckCircle, AlertCircle, ArrowRight } from 'lucide-react';
 
 interface StakeholdersDashboardProps {
   projectId: string;
@@ -20,8 +17,6 @@ interface StakeholdersDashboardProps {
 export function StakeholdersDashboard({ projectId }: StakeholdersDashboardProps) {
   const queryClient = useQueryClient();
   const [mutationError, setMutationError] = useState<string | null>(null);
-  const [showAddDialog, setShowAddDialog] = useState(false); // State for add/edit dialog
-  const [editingStakeholder, setEditingStakeholder] = useState<Stakeholder | null>(null); // State for editing
 
   // Fetch the project data to check completion status
   const { data: project, isLoading: isLoadingProject, error: projectError } = useQuery<ProjectWithStatus | null>({
@@ -29,18 +24,10 @@ export function StakeholdersDashboard({ projectId }: StakeholdersDashboardProps)
     queryFn: () => getProjectById(projectId),
   });
 
-  // Remove stakeholder fetching from dashboard - table handles it
-  // const { data: stakeholders = [], isLoading: isLoadingStakeholders, error: stakeholdersError, refetch: refetchStakeholders } = useQuery<Stakeholder[]>({
-  //    queryKey: ['stakeholders', projectId], 
-  //    queryFn: () => getStakeholders(projectId), // Use correct function name
-  //    enabled: !!projectId, 
-  // });
-
-
   // Mutation for marking the phase complete
   const { mutate: markComplete, isPending: isMarkingComplete } = useMutation({
     mutationFn: () => markProjectPhaseComplete(projectId, 'stakeholders_completed_at'),
-    onSuccess: (updatedProject) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['project', projectId] });
       queryClient.invalidateQueries({ queryKey: ['projects'] });
       queryClient.invalidateQueries({ queryKey: ['projectStats'] });
@@ -60,25 +47,6 @@ export function StakeholdersDashboard({ projectId }: StakeholdersDashboardProps)
     markComplete();
   };
 
-   const handleStakeholderSaved = () => {
-      setShowAddDialog(false);
-      setEditingStakeholder(null); 
-      // Invalidate query for the table to refetch
-      queryClient.invalidateQueries({ queryKey: ['stakeholders', projectId] }); 
-   };
-   
-   // This function might now be handled internally by the table, but keep for now if needed
-   const openEditDialog = (stakeholder: Stakeholder) => { 
-    setEditingStakeholder(stakeholder);
-    setShowAddDialog(true);
-  };
-  
-  const openAddDialog = () => {
-    setEditingStakeholder(null); // Ensure we are adding, not editing
-    setShowAddDialog(true);
-  };
-
-
   const isStakeholdersComplete = !!project?.stakeholders_completed_at;
 
   if (isLoadingProject) {
@@ -94,7 +62,6 @@ export function StakeholdersDashboard({ projectId }: StakeholdersDashboardProps)
       {/* Display Stakeholders Table - Pass only projectId */}
       {/* The table component fetches its own data and handles edit/delete */}
       <StakeholdersTable projectId={projectId} /> 
-      {/* Remove loading/error state here as table handles it */}
       
       {/* Mutation Error Display (for marking phase complete) */}
       {mutationError && (
@@ -106,7 +73,7 @@ export function StakeholdersDashboard({ projectId }: StakeholdersDashboardProps)
        )}
 
       {/* Action Buttons Section */}
-      <div className="mt-6 pt-6 border-t flex justify-end gap-2"> {/* Added gap-2 */}
+      <div className="mt-6 pt-6 border-t flex justify-end gap-2">
          {/* Mark Phase Complete Button */}
          <Button
            onClick={handleMarkComplete}

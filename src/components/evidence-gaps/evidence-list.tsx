@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'; // Import mutation hooks
+import { useQuery, useQueryClient } from '@tanstack/react-query'; // Removed useMutation
 import { getEvidenceForBoundaryControl, getEvidenceDownloadUrl, deleteEvidence } from '@/services/evidence-service';
 import { getProjectById, unmarkProjectPhaseComplete } from '@/services/project-service'; // Import project service functions
 import { Evidence, ProjectWithStatus } from '@/types'; // Import Project type
@@ -16,9 +16,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"; // Import AlertDialog components
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+// Removed Card imports
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, Download, Trash2, FileText, AlertCircle } from 'lucide-react';
+import { Loader2, Download, Trash2, AlertCircle } from 'lucide-react'; // Removed FileText
 import { format } from 'date-fns'; // For date formatting
 
 interface EvidenceListProps {
@@ -86,7 +86,7 @@ export function EvidenceList({ projectId, boundaryControlId }: EvidenceListProps
 
       refetch(); // Refetch the evidence list
       // TODO: Show success toast
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Deletion failed:", err);
       // TODO: Show error toast
     } finally {
@@ -178,7 +178,7 @@ export function EvidenceList({ projectId, boundaryControlId }: EvidenceListProps
           <AlertDialogHeader>
             <AlertDialogTitle>Confirm Modification</AlertDialogTitle>
             <AlertDialogDescription>
-              The "Evidence & Gaps" phase is marked as complete. Deleting evidence will reset this status. Are you sure you want to delete "{evidenceToDelete?.title}"?
+              The &quot;Evidence &amp; Gaps&quot; phase is marked as complete. Deleting evidence will reset this status. Are you sure you want to delete &quot;{evidenceToDelete?.title}&quot;?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

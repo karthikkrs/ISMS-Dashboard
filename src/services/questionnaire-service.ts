@@ -1,10 +1,15 @@
 import { createClient } from '@/utils/supabase/client'; // Use client for mutations/queries from components
-import { Database, Tables, TablesInsert, TablesUpdate } from '@/types/database.types';
+import { Tables, TablesInsert, TablesUpdate } from '@/types/database.types';
 
 type QuestionnaireQuestion = Tables<'questionnaire_questions'>;
 type ProjectQuestionnaireAnswer = Tables<'project_questionnaire_answers'>;
 type ProjectQuestionnaireAnswerInsert = TablesInsert<'project_questionnaire_answers'>;
 type ProjectQuestionnaireAnswerUpdate = TablesUpdate<'project_questionnaire_answers'>;
+
+// Type for the upsert operation that may have an id that needs to be removed
+interface ProjectQuestionnaireAnswerUpsert extends ProjectQuestionnaireAnswerInsert {
+  id?: string;
+}
 
 const supabase = createClient();
 
@@ -62,7 +67,7 @@ export async function saveProjectAnswer(
 
   // Ensure the object passed to upsert has the required fields, even if they are optional in the Update type.
   // The onConflict clause handles the logic, but the object needs to satisfy the base Insert type structure for upsert.
-  const dataToUpsert: ProjectQuestionnaireAnswerInsert = {
+  const dataToUpsert: ProjectQuestionnaireAnswerUpsert = {
     project_id: answerData.project_id, // Explicitly include required fields
     question_id: answerData.question_id, // Explicitly include required fields
     ...answerData, // Spread the rest of the data
@@ -72,13 +77,12 @@ export async function saveProjectAnswer(
 
   // Remove potentially undefined id if it exists from Update type, as upsert handles PK
   if ('id' in dataToUpsert) {
-      delete (dataToUpsert as any).id;
+      delete dataToUpsert.id;
   }
-
 
   const { data, error } = await supabase
     .from('project_questionnaire_answers')
-    .upsert(dataToUpsert as any, { onConflict: 'project_id, question_id' }) // Use 'as any' to bypass strict type check here, as we've ensured required fields exist
+    .upsert(dataToUpsert, { onConflict: 'project_id, question_id' })
     .select()
     .single(); // Expecting a single row back
 

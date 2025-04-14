@@ -59,6 +59,10 @@ export type Control = {
 };
 
 // Boundary Control types
+// Define compliance statuses as a const array that can be reused
+export const complianceStatuses = ['Compliant', 'Partially Compliant', 'Non Compliant', 'Not Assessed'] as const;
+export type ComplianceStatus = typeof complianceStatuses[number];
+
 export type BoundaryControl = {
   id: string;
   boundary_id: string;
@@ -67,9 +71,9 @@ export type BoundaryControl = {
   reason_inclusion?: string | null;
   reason_exclusion?: string | null;
   status?: string | null; // SOA status (e.g., Implemented)
-  compliance_status?: 'Compliant' | 'Partially Compliant' | 'Non Compliant' | 'Not Assessed' | null; // New compliance status
-  assessment_date?: string | null; // New assessment date
-  assessment_notes?: string | null; // New assessment notes
+  compliance_status?: ComplianceStatus | null; // Use the centralized ComplianceStatus type
+  assessment_date?: string | null;
+  assessment_notes?: string | null;
   user_id: string;
   created_at: string;
   updated_at: string;

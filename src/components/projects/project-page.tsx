@@ -3,13 +3,13 @@
 import React from 'react' // Remove useState import
 import { ProjectWithStatus } from '@/types'
 import Link from 'next/link'
-// Import useRouter and usePathname for navigation
-import { useRouter, usePathname } from 'next/navigation'
+// Import usePathname for navigation
+import { usePathname } from 'next/navigation' // Removed useRouter
 // Add ClipboardCheckIcon for Questionnaire
-import { ArrowLeft, Edit2, FileText, CheckCircle, LayoutDashboard, Users, ShieldCheck, ClipboardList, FolderOpenDot, BarChart3, ClipboardCheckIcon } from 'lucide-react' 
+import { ArrowLeft, Edit2, CheckCircle, LayoutDashboard, Users, ShieldCheck, ClipboardList, FolderOpenDot, BarChart3, ClipboardCheck } from 'lucide-react' // Fix ClipboardCheckIcon to ClipboardCheck
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs' // Removed TabsContent import
 import { format } from 'date-fns' // Import format from date-fns
 
 interface ProjectPageProps {
@@ -48,7 +48,7 @@ const getStatusBadgeVariant = (status: string | null | undefined) => {
 // Removed getPhaseCompletionBadge helper function
 
 export function ProjectPage({ project, id, children }: ProjectPageProps) {
-  const router = useRouter();
+  // Removed unused router variable
   const pathname = usePathname();
 
   // Determine active tab based on pathname
@@ -134,7 +134,7 @@ export function ProjectPage({ project, id, children }: ProjectPageProps) {
           {/* Add Questionnaire Tab Trigger */}
           <TabsTrigger value="questionnaire" asChild className="flex items-center justify-center gap-2">
              <Link href={`/dashboard/projects/${id}/questionnaire`} className="flex items-center justify-center gap-1">
-                <ClipboardCheckIcon className="h-4 w-4" />
+                <ClipboardCheck className="h-4 w-4" />
                 <span>Questionnaire</span>
                 {project.questionnaire_completed_at && <CheckCircle className="h-4 w-4 text-green-500 ml-1" />}
              </Link>

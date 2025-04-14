@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ProjectStats } from '@/types'
 // Removed React import
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts'
-import { ClipboardListIcon, ClockIcon, CheckCircleIcon, PauseCircleIcon } from 'lucide-react'
+import { ClipboardListIcon, ClockIcon, CheckCircleIcon } from 'lucide-react' // Removed PauseCircleIcon
 
 interface ProjectStatsProps {
   stats: ProjectStats

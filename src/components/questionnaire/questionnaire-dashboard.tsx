@@ -1,25 +1,23 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react'; // Removed useMemo
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getProjectById, markProjectPhaseComplete } from '@/services/project-service';
-import { getQuestionnaireQuestions, getProjectAnswers, saveProjectAnswer, getProjectAnswersGroupedByDomain } from '@/services/questionnaire-service';
+import { saveProjectAnswer, getProjectAnswersGroupedByDomain } from '@/services/questionnaire-service'; // Removed getQuestionnaireQuestions, getProjectAnswers
 // Import TablesInsert helper type
-import { Database, Tables, TablesInsert } from '@/types/database.types';
+import { TablesInsert } from '@/types/database.types'; // Removed Tables import which was unused
+import { ProjectWithStatus } from '@/types'; // Added missing import
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Loader2, CheckCircle, AlertCircle, ArrowRight, Info } from 'lucide-react';
 import Link from 'next/link';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"; // Removed CardFooter
 import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
-
-type Project = Tables<'projects'>;
-type QuestionnaireQuestion = Tables<'questionnaire_questions'>;
-type ProjectQuestionnaireAnswer = Tables<'project_questionnaire_answers'>;
+// Removed unused Project type declaration
 // Use the imported TablesInsert helper type
 type ProjectQuestionnaireAnswerInsert = TablesInsert<'project_questionnaire_answers'>;
 
@@ -37,7 +35,7 @@ export function QuestionnaireDashboard({ projectId }: QuestionnaireDashboardProp
   const [localAnswers, setLocalAnswers] = useState<Record<string, { status: AnswerStatus | null; notes: string | null }>>({});
 
   // Fetch project data for completion status
-  const { data: project, isLoading: isLoadingProject } = useQuery<Project | null>({
+  const { data: project, isLoading: isLoadingProject } = useQuery<ProjectWithStatus | null>({ // Use ProjectWithStatus
     queryKey: ['project', projectId],
     queryFn: () => getProjectById(projectId),
   });
@@ -69,7 +67,7 @@ export function QuestionnaireDashboard({ projectId }: QuestionnaireDashboardProp
 
 
   // Mutation for saving a single answer
-  const { mutate: saveAnswer, isPending: isSavingAnswer } = useMutation({
+  const { mutate: saveAnswer } = useMutation({ // Removed isSavingAnswer
     mutationFn: (answerData: ProjectQuestionnaireAnswerInsert) => saveProjectAnswer(answerData),
     onSuccess: (savedAnswer) => {
       // Update the specific answer in the query cache for grouped data

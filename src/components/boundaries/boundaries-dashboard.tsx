@@ -4,7 +4,8 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getProjectById, markProjectPhaseComplete } from '@/services/project-service';
 import { getBoundaries } from '@/services/boundary-service'; // Use correct function name
-import { ProjectWithStatus, Boundary } from '@/types'; // Import Boundary type
+import { ProjectWithStatus } from '@/types'; // Keep ProjectWithStatus
+import { Tables } from '@/types/database.types'; // Import Tables helper
 import { BoundariesTable } from './boundaries-table'; 
 import { MultiBoundaryForm } from './multi-boundary-form'; 
 import Link from 'next/link'; // Import Link
@@ -29,7 +30,7 @@ export function BoundariesDashboard({ projectId }: BoundariesDashboardProps) {
   });
 
   // Fetch boundaries for the table
-  const { data: boundaries = [], isLoading: isLoadingBoundaries, error: boundariesError } = useQuery<Boundary[]>({
+  const { data: boundaries = [], isLoading: isLoadingBoundaries, error: boundariesError } = useQuery<Tables<'boundaries'>[]>({ // Use Tables<'boundaries'>
      queryKey: ['boundaries', projectId], // Query key for boundaries
      queryFn: () => getBoundaries(projectId), // Use correct function name
      enabled: !!projectId, // Only run if projectId is available
@@ -39,7 +40,7 @@ export function BoundariesDashboard({ projectId }: BoundariesDashboardProps) {
   // Mutation for marking the phase complete
   const { mutate: markComplete, isPending: isMarkingComplete } = useMutation({
     mutationFn: () => markProjectPhaseComplete(projectId, 'boundaries_completed_at'),
-    onSuccess: (updatedProject) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['project', projectId] });
       queryClient.invalidateQueries({ queryKey: ['projects'] });
       queryClient.invalidateQueries({ queryKey: ['projectStats'] });

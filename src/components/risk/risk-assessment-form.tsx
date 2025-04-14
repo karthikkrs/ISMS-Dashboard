@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react'; // Import useEffect
+import { toast } from 'sonner'; // Import toast for notifications
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -9,14 +10,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger, DialogClose } from '@/components/ui/dialog'; // Use Dialog for modal
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogTrigger, DialogClose } from '@/components/ui/dialog'; // Use Dialog for modal
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Plus, XCircle, AlertTriangle, Check } from 'lucide-react';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Loader2, Plus, XCircle } from 'lucide-react'; // Removed unused X icon
 // Use Tables helper type from database.types.ts for all DB types
-import { Tables, TablesInsert, Json } from '@/types/database.types'; 
+import { Tables } from '@/types/database.types'; // Removed TablesInsert which was unused
 import { getBoundaries } from '@/services/boundary-service'; // To select Asset/Boundary
 import { ThreatScenarioList } from '@/components/threats/threat-scenario-list'; // To select Threat
-import { ThreatScenarioForm } from '@/components/threats/threat-scenario-form'; // To create Threat
+import { ThreatScenarioDialog } from '@/components/threats/threat-scenario-dialog'; // To create Threat in separate dialog
 // Import actual risk service functions
 import { createRiskAssessment, updateRiskAssessment } from '@/services/risk-assessment-service'; 
 
@@ -25,7 +27,7 @@ import { createRiskAssessment, updateRiskAssessment } from '@/services/risk-asse
 type Boundary = Tables<'boundaries'>; 
 type ThreatScenario = Tables<'threat_scenarios'>;
 type RiskAssessment = Tables<'risk_assessments'>;
-type RiskAssessmentInsert = TablesInsert<'risk_assessments'>;
+// Removed unused RiskAssessmentInsert type
 
 // --- Zod Schema ---
 // Schema for the flexible input fields (example structure)
@@ -78,7 +80,7 @@ export function RiskAssessmentForm({
 }: RiskAssessmentFormProps) {
   const queryClient = useQueryClient();
   const [isOpen, setIsOpen] = useState(false);
-  const [showNewThreatForm, setShowNewThreatForm] = useState(false);
+  const [showThreatDialog, setShowThreatDialog] = useState(false);
   const [selectedThreat, setSelectedThreat] = useState<ThreatScenario | null>(riskAssessment?.threat_scenario_id ? { id: riskAssessment.threat_scenario_id } as ThreatScenario : null); // Pre-select if editing
   const [error, setError] = useState<string | null>(null);
 
@@ -108,8 +110,26 @@ export function RiskAssessmentForm({
   }, [selectedThreat, setValue]);
 
   const mutationFn = isEditing && riskAssessment
-    ? (data: RiskAssessmentFormValues) => updateRiskAssessment(riskAssessment.id, { ...data, project_id: projectId, gap_id: gapId, control_id: controlId })
-    : (data: RiskAssessmentFormValues) => createRiskAssessment({ ...data, project_id: projectId, gap_id: gapId, control_id: controlId });
+    ? (data: RiskAssessmentFormValues) => updateRiskAssessment(riskAssessment.id, { 
+        project_id: projectId, 
+        gap_id: gapId, 
+        control_id: controlId,
+        boundary_id: data.boundary_id,
+        threat_scenario_id: data.threat_scenario_id,
+        likelihood_frequency_input: data.likelihood_frequency_input,
+        loss_magnitude_input: data.loss_magnitude_input,
+        assessment_notes: data.assessment_notes
+      })
+    : (data: RiskAssessmentFormValues) => createRiskAssessment({
+        project_id: projectId, 
+        gap_id: gapId, 
+        control_id: controlId,
+        boundary_id: data.boundary_id,
+        threat_scenario_id: data.threat_scenario_id,
+        likelihood_frequency_input: data.likelihood_frequency_input,
+        loss_magnitude_input: data.loss_magnitude_input,
+        assessment_notes: data.assessment_notes
+      });
 
   const mutation = useMutation({
     mutationFn,
@@ -118,6 +138,14 @@ export function RiskAssessmentForm({
       reset();
       setSelectedThreat(null);
       setIsOpen(false); // Close dialog on success
+      
+      // Show success toast notification
+      toast.success(
+        isEditing 
+          ? 'Risk assessment updated successfully' 
+          : 'Risk assessment created successfully'
+      );
+      
       // Invalidate relevant queries
       queryClient.invalidateQueries({ queryKey: ['riskAssessments', projectId] }); 
       queryClient.invalidateQueries({ queryKey: ['gaps', riskAssessment?.gap_id] }); // Invalidate specific gap if linked
@@ -127,7 +155,12 @@ export function RiskAssessmentForm({
     },
     onError: (err) => {
       console.error(`Error ${isEditing ? 'updating' : 'creating'} risk assessment:`, err);
-      setError(`Failed to ${isEditing ? 'update' : 'create'} assessment: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      const errorMessage = `Failed to ${isEditing ? 'update' : 'create'} assessment: ${err instanceof Error ? err.message : 'Unknown error'}`;
+      
+      // Show error toast notification
+      toast.error(errorMessage);
+      
+      setError(errorMessage);
     },
   });
 
@@ -143,116 +176,124 @@ export function RiskAssessmentForm({
 
   const handleThreatSelected = (scenario: ThreatScenario) => {
     setSelectedThreat(scenario);
-    setShowNewThreatForm(false); // Hide form if shown
+    setShowThreatDialog(false); // Hide dialog if shown
   }
 
   const handleNewThreatSuccess = (scenario: ThreatScenario) => {
      setSelectedThreat(scenario);
-     setShowNewThreatForm(false);
+     setShowThreatDialog(false);
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
-      <DialogContent className="sm:max-w-[800px]"> {/* Wider dialog */}
-        <DialogHeader>
-          <DialogTitle>{isEditing ? 'Edit Risk Assessment' : 'Assess Risk'}</DialogTitle>
-        </DialogHeader>
-        <form onSubmit={handleSubmit(onSubmit)}>
-          <div className="grid gap-6 py-4">
+    <>
+      <ThreatScenarioDialog
+        projectId={projectId}
+        gapId={gapId}
+        isOpen={showThreatDialog}
+        onOpenChange={setShowThreatDialog}
+        onSuccess={handleNewThreatSuccess}
+      />
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
+        <DialogContent className="sm:max-w-[800px] max-h-[90vh]"> {/* Adjusted max height */}
+          <DialogHeader>
+            <DialogTitle>{isEditing ? 'Edit Risk Assessment' : 'Assess Risk'}</DialogTitle>
+            <DialogDescription>
+              Evaluate risks by selecting an asset, threat scenario, and providing impact details.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleSubmit(onSubmit)}>
+            <ScrollArea className="h-[60vh] overflow-y-auto pr-4"> {/* Force scrolling with fixed height */}
+              <div className="grid gap-6 py-4 px-1">
 
-            {/* Asset (Boundary) Selection */}
-            <div className="space-y-2">
-              <Label htmlFor="boundary_id">Asset / Boundary</Label>
-              <Controller
-                name="boundary_id"
-                control={control}
-                render={({ field }) => (
-                  <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoadingBoundaries || isSubmitting}>
-                    <SelectTrigger id="boundary_id">
-                      <SelectValue placeholder={isLoadingBoundaries ? "Loading boundaries..." : "Select Asset/Boundary"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {boundaries?.map((b) => (
-                        <SelectItem key={b.id} value={b.id}>{b.name} ({b.type})</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+              {/* Asset (Boundary) Selection */}
+              <div className="space-y-2">
+                <Label htmlFor="boundary_id">Asset / Boundary</Label>
+                <Controller
+                  name="boundary_id"
+                  control={control}
+                  render={({ field }) => (
+                    <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoadingBoundaries || isSubmitting}>
+                      <SelectTrigger id="boundary_id">
+                        <SelectValue placeholder={isLoadingBoundaries ? "Loading boundaries..." : "Select Asset/Boundary"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {boundaries?.map((b) => (
+                          <SelectItem key={b.id} value={b.id}>{b.name} ({b.type})</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+                {errors.boundary_id && <p className="text-xs text-destructive mt-1">{errors.boundary_id.message}</p>}
+              </div>
+
+              {/* Threat Scenario Selection/Creation */}
+              <div className="space-y-4 rounded-md border p-4">
+                {selectedThreat ? (
+                    <div className="flex justify-between items-center">
+                      <div>
+                          <Label>Selected Threat Scenario</Label>
+                          <p className="text-sm font-medium">{selectedThreat.name}</p>
+                      </div>
+                      <Button variant="outline" size="sm" onClick={() => { setSelectedThreat(null); setValue('threat_scenario_id', ''); }}>Change</Button>
+                    </div>
+                ) : (
+                    <>
+                      <ThreatScenarioList projectId={projectId} onSelectScenario={handleThreatSelected} />
+                      <Button type="button" variant="secondary" size="sm" onClick={() => setShowThreatDialog(true)}>
+                        <Plus className="mr-2 h-4 w-4"/> Create New Scenario
+                      </Button>
+                    </>
                 )}
-              />
-              {errors.boundary_id && <p className="text-xs text-destructive mt-1">{errors.boundary_id.message}</p>}
-            </div>
-
-            {/* Threat Scenario Selection/Creation */}
-            <div className="space-y-4 rounded-md border p-4">
-               {selectedThreat ? (
-                  <div className="flex justify-between items-center">
-                     <div>
-                        <Label>Selected Threat Scenario</Label>
-                        <p className="text-sm font-medium">{selectedThreat.name}</p>
-                     </div>
-                     <Button variant="outline" size="sm" onClick={() => { setSelectedThreat(null); setValue('threat_scenario_id', ''); }}>Change</Button>
-                  </div>
-               ) : showNewThreatForm ? (
-                  <ThreatScenarioForm 
-                     projectId={projectId} 
-                     onSuccess={handleNewThreatSuccess} 
-                     onCancel={() => setShowNewThreatForm(false)} 
-                  />
-               ) : (
-                  <>
-                     <ThreatScenarioList projectId={projectId} onSelectScenario={handleThreatSelected} />
-                     <Button type="button" variant="secondary" size="sm" onClick={() => setShowNewThreatForm(true)}>
-                       <Plus className="mr-2 h-4 w-4"/> Create New Scenario
-                     </Button>
-                  </>
-               )}
-               {/* Hidden input to satisfy schema validation, value set by state */}
-               <input type="hidden" {...register('threat_scenario_id')} />
-               {errors.threat_scenario_id && !selectedThreat && <p className="text-xs text-destructive mt-1">{errors.threat_scenario_id.message}</p>}
-            </div>
+                {/* Hidden input to satisfy schema validation, value set by state */}
+                <input type="hidden" {...register('threat_scenario_id')} />
+                {errors.threat_scenario_id && !selectedThreat && <p className="text-xs text-destructive mt-1">{errors.threat_scenario_id.message}</p>}
+              </div>
 
 
-            {/* Likelihood / Frequency Input */}
-            <div className="space-y-2">
-              <Label>Likelihood / Frequency</Label>
-              {/* TODO: Implement flexible input based on likelihoodSchema */}
-              <Input placeholder="Input for Likelihood (e.g., High / 3 times/year)" {...register('likelihood_frequency_input')} />
-              <p className="text-xs text-muted-foreground">Define how often this threat might occur against this asset.</p>
-            </div>
+              {/* Likelihood / Frequency Input */}
+              <div className="space-y-2">
+                <Label>Likelihood / Frequency</Label>
+                {/* TODO: Implement flexible input based on likelihoodSchema */}
+                <Input placeholder="Input for Likelihood (e.g., High / 3 times/year)" {...register('likelihood_frequency_input')} />
+                <p className="text-xs text-muted-foreground">Define how often this threat might occur against this asset.</p>
+              </div>
 
-            {/* Loss Magnitude Input */}
-            <div className="space-y-2">
-              <Label>Loss Magnitude</Label>
-              {/* TODO: Implement flexible input based on magnitudeSchema */}
-              <Input placeholder="Input for Magnitude (e.g., Medium / $10k-$50k)" {...register('loss_magnitude_input')} />
-               <p className="text-xs text-muted-foreground">Estimate the potential impact if the threat occurs.</p>
-            </div>
+              {/* Loss Magnitude Input */}
+              <div className="space-y-2">
+                <Label>Loss Magnitude</Label>
+                {/* TODO: Implement flexible input based on magnitudeSchema */}
+                <Input placeholder="Input for Magnitude (e.g., Medium / $10k-$50k)" {...register('loss_magnitude_input')} />
+                <p className="text-xs text-muted-foreground">Estimate the potential impact if the threat occurs.</p>
+              </div>
 
-            {/* Assessment Notes */}
-            <div className="space-y-2">
-              <Label htmlFor="assessment_notes">Assessment Notes (Optional)</Label>
-              <Textarea id="assessment_notes" {...register('assessment_notes')} placeholder="Justification, assumptions, details..." />
-            </div>
+              {/* Assessment Notes */}
+              <div className="space-y-2">
+                <Label htmlFor="assessment_notes">Assessment Notes (Optional)</Label>
+                <Textarea id="assessment_notes" {...register('assessment_notes')} placeholder="Justification, assumptions, details..." />
+              </div>
 
-             {error && (
-               <div className="text-sm text-destructive flex items-center gap-2 bg-red-50 p-3 rounded-md border border-red-200">
-                 <XCircle className="h-4 w-4" />
-                 {error}
-               </div>
-             )}
-          </div>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button type="button" variant="outline" disabled={isSubmitting}>Cancel</Button>
-            </DialogClose>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {isEditing ? 'Update Assessment' : 'Save Assessment'}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+              {error && (
+                <div className="text-sm text-destructive flex items-center gap-2 bg-red-50 p-3 rounded-md border border-red-200">
+                  <XCircle className="h-4 w-4" />
+                  {error}
+                </div>
+              )}
+              </div>
+            </ScrollArea>
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button type="button" variant="outline" disabled={isSubmitting}>Cancel</Button>
+              </DialogClose>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {isEditing ? 'Update Assessment' : 'Save Assessment'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

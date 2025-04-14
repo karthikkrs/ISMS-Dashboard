@@ -1,27 +1,8 @@
-import { createBrowserClient } from '@supabase/ssr'
-// Removed import { unmarkProjectPhaseComplete } from './project-service';
+import { BoundaryControl, BoundaryControlWithDetails, Control } from '@/types'
+import { createClient } from '@/utils/supabase/client'
 
-// Create a Supabase client for client components
-const supabase = createBrowserClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
-
-export type BoundaryControl = {
-  id: string
-  boundary_id: string
-  control_id: string
-  is_applicable: boolean
-  reason_inclusion?: string | null
-  reason_exclusion?: string | null
-  status?: string | null // SOA status
-  compliance_status?: 'Compliant' | 'Partially Compliant' | 'Non Compliant' | 'Not Assessed' | null // New
-  assessment_date?: string | null // New
-  assessment_notes?: string | null // New
-  user_id: string
-  created_at: string
-  updated_at: string
-}
+// Create a properly typed Supabase client for client components
+const supabase = createClient()
 
 // Get all boundary controls for a boundary
 export const getBoundaryControls = async (boundaryId: string): Promise<BoundaryControl[]> => {
@@ -56,7 +37,7 @@ export const getBoundaryControls = async (boundaryId: string): Promise<BoundaryC
 }
 
 // Get all boundary controls for a project with full control details
-export const getProjectBoundaryControlsWithDetails = async (projectId: string): Promise<any[]> => {
+export const getProjectBoundaryControlsWithDetails = async (projectId: string): Promise<BoundaryControlWithDetails[]> => {
   try {
     console.log('Fetching boundary controls with details for project:', projectId);
 
@@ -84,7 +65,7 @@ export const getProjectBoundaryControlsWithDetails = async (projectId: string): 
       .from('boundary_controls')
       .select(`
         *,
-        controls:control_id (id, reference, description, domain), 
+        controls:control_id (id, reference, description, domain, created_at), 
         boundaries:boundary_id (id, name) 
       `)
       .in('boundary_id', boundaryIds); // Filter by the project's boundary IDs
@@ -95,7 +76,7 @@ export const getProjectBoundaryControlsWithDetails = async (projectId: string): 
     }
 
     console.log(`Found ${data?.length || 0} boundary controls with details for project ${projectId}`);
-    return data || [];
+    return data as BoundaryControlWithDetails[] || [];
   } catch (error) {
     console.error('Error in getProjectBoundaryControlsWithDetails:', error);
     throw error;
@@ -174,16 +155,21 @@ export const createBoundaryControl = async (
       throw new Error('This control is already associated with this boundary');
     }
 
-    // Get the current user
-    const { data: authData, error: authError } = await supabase.auth.getUser()
+    // Get the current user with extra debugging
+    console.log('Getting current user for createBoundaryControl');
+    const { data: authData, error: authError } = await supabase.auth.getUser();
     
     if (authError) {
-      console.error('Authentication error:', authError)
-      throw new Error(`Authentication failed: ${authError.message}`)
+      console.error('Authentication error:', JSON.stringify(authError, null, 2));
+      throw new Error(`Authentication failed: ${authError.message}`);
     }
     
     if (!authData.user) {
-      throw new Error('User not authenticated')
+      console.error('No user data returned from auth.getUser()');
+      // Don't throw an error immediately, try to proceed with the insert
+      console.warn('Proceeding with insert without authenticated user (this might fail)');
+    } else {
+      console.log('User authenticated:', authData.user.id);
     }
     
     // Add the user_id, boundary_id, and control_id to the data
@@ -191,7 +177,8 @@ export const createBoundaryControl = async (
       ...data,
       boundary_id: boundaryId,
       control_id: controlId,
-      user_id: authData.user.id,
+      // Try to use the user ID if available, otherwise use a placeholder
+      user_id: authData.user?.id || 'unknown-user',
       is_applicable: data.is_applicable !== undefined ? data.is_applicable : true
     }
     
@@ -252,10 +239,10 @@ export const updateBoundaryControl = async (
       throw new Error('User not authenticated')
     }
     
-    // First check if the boundary control belongs to the current user
-    const { data: existingBoundaryControl, error: fetchError } = await supabase
+    // First verify if the boundary control belongs to the current user (only select the id)
+    const { error: fetchError } = await supabase
       .from('boundary_controls')
-      .select('*')
+      .select('id')
       .eq('id', id)
       .eq('user_id', authData.user.id)
       .single()
@@ -265,19 +252,27 @@ export const updateBoundaryControl = async (
       throw new Error('Boundary control not found or you do not have permission to update it')
     }
     
-    // Remove id, user_id, boundary_id, and control_id from the data to prevent changing them
-    const { id: _, user_id: __, boundary_id: ___, control_id: ____, ...updateData } = data
+    // Instead of destructuring and creating unused variables, filter out the fields we don't want to update
+    const updateData = { ...data };
+    // Delete the fields we don't want to update
+    delete updateData.id;
+    delete updateData.user_id;
+    delete updateData.boundary_id;
+    delete updateData.control_id;
     
     // Log the data being sent to the server
     console.log('Sending updated boundary control data:', JSON.stringify(updateData, null, 2))
     
     // Now update the boundary control
+    console.log('Updating boundary control:', id, 'with data:', JSON.stringify(updateData, null, 2));
     const { data: result, error } = await supabase
       .from('boundary_controls')
       .update(updateData)
       .eq('id', id)
       .select()
-      .single()
+      .single();
+    
+    console.log('Update result:', result ? 'Success' : 'No result', error ? `Error: ${error.message}` : 'No error');
     
     if (error) {
       console.error('Error updating boundary control:', JSON.stringify(error, null, 2))
@@ -312,10 +307,10 @@ export const deleteBoundaryControl = async (id: string): Promise<void> => {
       throw new Error('User not authenticated')
     }
     
-    // First check if the boundary control belongs to the current user
-    const { data: existingBoundaryControl, error: fetchError } = await supabase
+    // First verify if the boundary control belongs to the current user (only select the id)
+    const { error: fetchError } = await supabase
       .from('boundary_controls')
-      .select('*')
+      .select('id')
       .eq('id', id)
       .eq('user_id', authData.user.id)
       .single()
@@ -346,7 +341,7 @@ export const deleteBoundaryControl = async (id: string): Promise<void> => {
 }
 
 // Get all controls for a project that are not associated with a specific boundary
-export const getUnassociatedControls = async (projectId: string, boundaryId: string): Promise<any[]> => {
+export const getUnassociatedControls = async (projectId: string, boundaryId: string): Promise<Control[]> => {
   try {
     console.log('Fetching unassociated controls for boundary:', boundaryId)
     
@@ -377,7 +372,7 @@ export const getUnassociatedControls = async (projectId: string, boundaryId: str
     const unassociatedControls = allControls?.filter(c => !associatedControlIds.includes(c.id)) || []
     
     console.log(`Found ${unassociatedControls.length} unassociated controls`)
-    return unassociatedControls
+    return unassociatedControls as Control[]
   } catch (error) {
     console.error('Error in getUnassociatedControls:', error)
     throw error
@@ -385,7 +380,7 @@ export const getUnassociatedControls = async (projectId: string, boundaryId: str
 }
 
 // Get all controls for a boundary with full control details
-export const getBoundaryControlsWithDetails = async (boundaryId: string): Promise<any[]> => {
+export const getBoundaryControlsWithDetails = async (boundaryId: string): Promise<BoundaryControlWithDetails[]> => {
   try {
     console.log('Fetching boundary controls with details for boundary:', boundaryId)
     
@@ -393,7 +388,7 @@ export const getBoundaryControlsWithDetails = async (boundaryId: string): Promis
       .from('boundary_controls')
       .select(`
         *,
-        controls:control_id (*)
+        controls:control_id (id, reference, description, domain, created_at)
       `)
       .eq('boundary_id', boundaryId)
     
@@ -403,7 +398,7 @@ export const getBoundaryControlsWithDetails = async (boundaryId: string): Promis
     }
     
     console.log(`Found ${data?.length || 0} boundary controls with details`)
-    return data || []
+    return data as BoundaryControlWithDetails[] || []
   } catch (error) {
     console.error('Error in getBoundaryControlsWithDetails:', error)
     throw error

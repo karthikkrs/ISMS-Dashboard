@@ -457,13 +457,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "remediation_plans_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "remediation_plans_gap_id_fkey"
             columns: ["gap_id"]
             isOneToOne: false
@@ -500,13 +493,6 @@ export type Database = {
             columns: ["remediation_plan_id"]
             isOneToOne: false
             referencedRelation: "remediation_plans"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "remediation_updates_updated_by_fkey"
-            columns: ["updated_by"]
-            isOneToOne: false
-            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
@@ -561,13 +547,6 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
-          {
-            foreignKeyName: "risk_assessments_assessor_id_fkey"
-            columns: ["assessor_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "risk_assessments_boundary_id_fkey"
             columns: ["boundary_id"]
@@ -637,57 +616,6 @@ export type Database = {
             columns: ["risk_assessment_id"]
             isOneToOne: false
             referencedRelation: "risk_assessments"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      soa: {
-        Row: {
-          control_id: string
-          created_at: string | null
-          id: string
-          is_applicable: boolean | null
-          project_id: string
-          reason_exclusion: string | null
-          reason_inclusion: string | null
-          status: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          control_id: string
-          created_at?: string | null
-          id?: string
-          is_applicable?: boolean | null
-          project_id: string
-          reason_exclusion?: string | null
-          reason_inclusion?: string | null
-          status?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          control_id?: string
-          created_at?: string | null
-          id?: string
-          is_applicable?: boolean | null
-          project_id?: string
-          reason_exclusion?: string | null
-          reason_inclusion?: string | null
-          status?: string | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "soa_control_id_fkey"
-            columns: ["control_id"]
-            isOneToOne: false
-            referencedRelation: "controls"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "soa_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]
@@ -770,36 +698,55 @@ export type Database = {
       }
       threat_scenarios: {
         Row: {
+          aro: number | null
           created_at: string | null
           description: string | null
+          gap_id: string | null
           id: string
+          mitre_techniques: string[] | null
           name: string
           project_id: string
           relevant_iso_domains: string[] | null
+          sle: number | null
           threat_actor_type: string | null
           updated_at: string | null
         }
         Insert: {
+          aro?: number | null
           created_at?: string | null
           description?: string | null
+          gap_id?: string | null
           id?: string
+          mitre_techniques?: string[] | null
           name: string
           project_id: string
           relevant_iso_domains?: string[] | null
+          sle?: number | null
           threat_actor_type?: string | null
           updated_at?: string | null
         }
         Update: {
+          aro?: number | null
           created_at?: string | null
           description?: string | null
+          gap_id?: string | null
           id?: string
+          mitre_techniques?: string[] | null
           name?: string
           project_id?: string
           relevant_iso_domains?: string[] | null
+          sle?: number | null
           threat_actor_type?: string | null
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "threat_scenarios_gap_id_fkey"
+            columns: ["gap_id"]
+            isOneToOne: false
+            referencedRelation: "gaps"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "threat_scenarios_project_id_fkey"
             columns: ["project_id"]
@@ -827,26 +774,27 @@ export type Database = {
 
 type DefaultSchema = Database[Extract<keyof Database, "public">]
 
-// Corrected Helper Types (Removed erroneous newlines)
 export type Tables<
-  PublicTableNameOrOptions extends
+  DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof Database },
-  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
-    ? keyof (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
-        Database[PublicTableNameOrOptions["schema"]]["Views"])
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof Database
+  }
+    ? keyof (Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        Database[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
     : never = never,
-> = PublicTableNameOrOptions extends { schema: keyof Database }
-  ? (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
-      Database[PublicTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends { schema: keyof Database }
+  ? (Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      Database[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
       Row: infer R
     }
     ? R
     : never
-  : PublicTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
         DefaultSchema["Views"])
     ? (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])[PublicTableNameOrOptions] extends {
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
         Row: infer R
       }
       ? R
@@ -854,20 +802,22 @@ export type Tables<
     : never
 
 export type TablesInsert<
-  PublicTableNameOrOptions extends
+  DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof Database },
-  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
-    ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof Database
+  }
+    ? keyof Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
-> = PublicTableNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends { schema: keyof Database }
+  ? Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Insert: infer I
     }
     ? I
     : never
-  : PublicTableNameOrOptions extends keyof DefaultSchema["Tables"]
-    ? DefaultSchema["Tables"][PublicTableNameOrOptions] extends {
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
         Insert: infer I
       }
       ? I
@@ -875,20 +825,22 @@ export type TablesInsert<
     : never
 
 export type TablesUpdate<
-  PublicTableNameOrOptions extends
+  DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof Database },
-  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
-    ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof Database
+  }
+    ? keyof Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
-> = PublicTableNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends { schema: keyof Database }
+  ? Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Update: infer U
     }
     ? U
     : never
-  : PublicTableNameOrOptions extends keyof DefaultSchema["Tables"]
-    ? DefaultSchema["Tables"][PublicTableNameOrOptions] extends {
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
         Update: infer U
       }
       ? U
@@ -896,16 +848,18 @@ export type TablesUpdate<
     : never
 
 export type Enums<
-  PublicEnumNameOrOptions extends
+  DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof Database },
-  EnumName extends PublicEnumNameOrOptions extends { schema: keyof Database }
-    ? keyof Database[PublicEnumNameOrOptions["schema"]]["Enums"]
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof Database
+  }
+    ? keyof Database[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
     : never = never,
-> = PublicEnumNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicEnumNameOrOptions["schema"]]["Enums"][EnumName]
-  : PublicEnumNameOrOptions extends keyof DefaultSchema["Enums"]
-    ? DefaultSchema["Enums"][PublicEnumNameOrOptions]
+> = DefaultSchemaEnumNameOrOptions extends { schema: keyof Database }
+  ? Database[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
     : never
 
 export type CompositeTypes<
@@ -923,9 +877,8 @@ export type CompositeTypes<
     ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
     : never
 
-// Removed the potentially problematic Constants export
-// export const Constants = {
-//   public: {
-//     Enums: {},
-//   },
-// } as const
+export const Constants = {
+  public: {
+    Enums: {},
+  },
+} as const

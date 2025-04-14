@@ -1,15 +1,14 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+// Removed unused useState, useEffect
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { cn } from '@/lib/utils'
+// Removed unused cn
 import { 
   ClipboardListIcon, 
   MapIcon, 
   UsersIcon, 
-  FileTextIcon,
-  ShieldIcon,
+  // Removed unused FileTextIcon, ShieldIcon
   CheckSquareIcon,
   BarChart2Icon,
   FileSearchIcon, // Import new icon

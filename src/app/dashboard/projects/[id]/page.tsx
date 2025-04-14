@@ -2,20 +2,17 @@ import { createServerClient } from '@supabase/ssr' // Keep for auth check
 import { cookies } from 'next/headers';
 import { redirect, notFound } from 'next/navigation';
 import { ProjectPage } from '@/components/projects/project-page';
-import { ProjectHeader, ProjectDetails } from '@/components/projects/project-details'; // Import ProjectHeader AND ProjectDetails
+import { ProjectDetails } from '@/components/projects/project-details'; // Import ProjectDetails
 import { getProjectById } from '@/services/project-service'; // Import service function
 import { ProjectWithStatus } from '@/types'; // Import ProjectWithStatus
 
 interface ProjectDetailPageProps {
-  params: {
-    id: string
-  }
+  params: Promise<{ id: string }>
 }
 
 export default async function ProjectDetailPage({ params }: ProjectDetailPageProps) {
-  // Get the id from params - Adding await based on user feedback, though usually not needed
-  const resolvedParams = await params; 
-  const { id } = resolvedParams; 
+  // Await params as shown in the documentation
+  const { id } = await params;
   
   // --- Auth Check (Keep using createServerClient for this) ---
   const cookieStore = await cookies(); // Add await here

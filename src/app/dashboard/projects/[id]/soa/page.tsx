@@ -1,27 +1,25 @@
 // Remove "use client"
 
-import { createServerClient } from '@supabase/ssr'
+import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { redirect, notFound } from 'next/navigation'
 // Remove DndProvider and HTML5Backend imports
 import { SoaPageClient } from '@/components/soa/SoaPageClient' // Import the new client component
-// Remove Button, Link, ArrowLeftIcon imports as they are handled in SoaPageClient
+import { Database } from '@/types/database.types' // Import Database type
 
-interface SoaPageProps {
-  params: {
-    id: string
-  }
-}
-
-export default async function SoaPage({ params }: SoaPageProps) {
-  // Get the id from params
-  const { id } = await params
+export default async function SoaPage({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) {
+  // Await params as shown in the documentation
+  const { id } = await params;
   
   // Get the cookie store
   const cookieStore = await cookies()
   
   // Create a Supabase client for server components
-  const supabase = createServerClient(
+  const supabase = createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
@@ -29,18 +27,18 @@ export default async function SoaPage({ params }: SoaPageProps) {
         get(name: string) {
           return cookieStore.get(name)?.value
         },
-        set(name: string, value: string, options: any) {
+        set(name: string, value: string, options: CookieOptions) {
           try {
             cookieStore.set({ name, value, ...options })
-          } catch (error) {
+          } catch {
             // This will throw in middleware, but we can
             // safely ignore it for the purpose of authentication.
           }
         },
-        remove(name: string, options: any) {
+        remove(name: string, options: CookieOptions) {
           try {
             cookieStore.set({ name, value: '', ...options })
-          } catch (error) {
+          } catch {
             // This will throw in middleware, but we can
             // safely ignore it for the purpose of authentication.
           }

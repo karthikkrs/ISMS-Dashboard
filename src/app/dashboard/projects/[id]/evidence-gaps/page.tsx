@@ -6,14 +6,13 @@ import { ProjectPage } from '@/components/projects/project-page';
 import { getProjectById } from '@/services/project-service'; // Import service
 import { ProjectWithStatus } from '@/types'; // Import correct type
 
-interface EvidenceGapsPageProps {
-  params: { id: string };
-}
-
-export default async function EvidenceGapsPage({ params }: EvidenceGapsPageProps) {
-  // Await params first as per Next.js docs/errors
-  const resolvedParams = await params; 
-  const projectId = resolvedParams.id; // Now access id
+export default async function EvidenceGapsPage({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) {
+  // Await params as shown in the documentation
+  const { id: projectId } = await params;
 
   // --- Fetch project data (matching [id]/page.tsx structure) ---
   const cookieStore = await cookies() // Ensure await is present
@@ -29,14 +28,14 @@ export default async function EvidenceGapsPage({ params }: EvidenceGapsPageProps
         set(name: string, value: string, options: CookieOptions) { // Use imported CookieOptions type
           try {
             cookieStore.set({ name, value, ...options })
-          } catch (error) {
+          } catch {
             // Ignore errors for auth
           }
         },
         remove(name: string, options: CookieOptions) { // Use imported CookieOptions type
           try {
             cookieStore.set({ name, value: '', ...options })
-          } catch (error) {
+          } catch {
             // Ignore errors for auth
           }
         },

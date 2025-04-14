@@ -12,7 +12,7 @@ import {
   ColumnFiltersState,
   flexRender
 } from '@tanstack/react-table'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'; // Import query/mutation hooks
+import { useQuery, useQueryClient } from '@tanstack/react-query'; // Import query hooks
 import { BoundaryType, ProjectWithStatus } from '@/types' // Remove Boundary import
 import { Tables } from '@/types/database.types'; // Import Tables helper
 import { getProjectById, unmarkProjectPhaseComplete } from '@/services/project-service'; // Import project service functions
@@ -28,7 +28,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"; // Import AlertDialog components
 import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { 
   CheckCircle, 
   XCircle, 
@@ -482,7 +481,7 @@ export function BoundariesTable({ projectId, boundaries }: BoundariesTableProps)
           <AlertDialogHeader>
             <AlertDialogTitle>Confirm Modification</AlertDialogTitle>
             <AlertDialogDescription>
-              The "Boundaries" phase is marked as complete. Deleting this boundary will reset the phase status. Are you sure you want to delete "{boundaryToDelete?.name}"?
+              The &quot;Boundaries&quot; phase is marked as complete. Deleting this boundary will reset the phase status. Are you sure you want to delete &quot;{boundaryToDelete?.name}&quot;?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

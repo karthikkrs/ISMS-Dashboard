@@ -3,10 +3,21 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 // Removed dynamic import
 import { ProjectsDashboard } from '@/components/projects/projects-dashboard'; // Import directly
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import Link from 'next/link';
 // Removed Loader2Icon import as loading state is removed
+
+// Define a proper type for cookie options
+interface CookieOptions {
+  name: string;
+  value: string;
+  maxAge?: number;
+  domain?: string;
+  path?: string;
+  expires?: Date;
+  httpOnly?: boolean;
+  secure?: boolean;
+  sameSite?: 'strict' | 'lax' | 'none';
+}
 
 export default async function DashboardPage() {
   // Get the cookie store - await it since it's now asynchronous in Next.js 15
@@ -21,18 +32,18 @@ export default async function DashboardPage() {
         get(name: string) {
           return cookieStore.get(name)?.value
         },
-        set(name: string, value: string, options: any) {
+        set(name: string, value: string, options: CookieOptions) {
           try {
             cookieStore.set({ name, value, ...options })
-          } catch (error) {
+          } catch {
             // This will throw in middleware, but we can
             // safely ignore it for the purpose of authentication.
           }
         },
-        remove(name: string, options: any) {
+        remove(name: string, options: CookieOptions) {
           try {
             cookieStore.set({ name, value: '', ...options })
-          } catch (error) {
+          } catch {
             // This will throw in middleware, but we can
             // safely ignore it for the purpose of authentication.
           }
@@ -70,15 +81,15 @@ export default async function DashboardPage() {
                     get(name: string) {
                       return cookieStore.get(name)?.value
                     },
-                    set(name: string, value: string, options: any) {
+                    set(name: string, value: string, options: CookieOptions) {
                       try {
                         cookieStore.set({ name, value, ...options })
-                      } catch (error) {}
+                      } catch {}
                     },
-                    remove(name: string, options: any) {
+                    remove(name: string, options: CookieOptions) {
                       try {
                         cookieStore.set({ name, value: '', ...options })
-                      } catch (error) {}
+                      } catch {}
                     },
                   },
                 }

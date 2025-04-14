@@ -1,5 +1,9 @@
 import { createBrowserClient } from '@supabase/ssr'
-import { Boundary, BoundaryType } from '@/types'
+import { BoundaryType } from '@/types'
+import { Tables } from '@/types/database.types'
+
+// Type alias for boundary from database.types.ts
+type Boundary = Tables<'boundaries'>
 
 // Create a Supabase client for client components
 const supabase = createBrowserClient(
@@ -169,10 +173,10 @@ export const updateBoundary = async (
       throw new Error('User not authenticated')
     }
     
-    // First check if the boundary belongs to the current user
-    const { data: existingBoundary, error: fetchError } = await supabase
+    // First verify if the boundary belongs to the current user (only select the id)
+    const { error: fetchError } = await supabase
       .from('boundaries')
-      .select('*')
+      .select('id')
       .eq('id', id)
       .eq('user_id', authData.user.id)
       .single()
@@ -244,10 +248,10 @@ export const deleteBoundary = async (id: string): Promise<void> => {
       throw new Error('User not authenticated')
     }
     
-    // First check if the boundary belongs to the current user
-    const { data: existingBoundary, error: fetchError } = await supabase
+    // First verify if the boundary belongs to the current user (only select the id)
+    const { error: fetchError } = await supabase
       .from('boundaries')
-      .select('*')
+      .select('id')
       .eq('id', id)
       .eq('user_id', authData.user.id)
       .single()

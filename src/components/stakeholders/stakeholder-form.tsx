@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react' // Added useEffect
+import { useState } from 'react' // Removed useEffect
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'; // Import query/mutation hooks
+import { useQuery, useQueryClient } from '@tanstack/react-query'; // Removed useMutation
 import { Button } from '@/components/ui/button'
 import {
   AlertDialog,
@@ -61,7 +61,7 @@ export function StakeholderForm({
   });
   
   // Initialize the form with default values or existing stakeholder data
-  const { register, handleSubmit, formState: { errors }, reset } = useForm<StakeholderFormValues>({ // Added reset
+  const { register, handleSubmit, formState: { errors } } = useForm<StakeholderFormValues>({ // Removed reset
     resolver: zodResolver(stakeholderSchema),
     defaultValues: {
       name: stakeholder?.name || '',
@@ -78,10 +78,18 @@ export function StakeholderForm({
     try {
       const wasPhaseComplete = !!project?.stakeholders_completed_at;
 
+      // Create a properly typed object that ensures name is required
+      const stakeholderData = {
+        name: data.name, // Name is required
+        role: data.role,
+        email: data.email,
+        responsibilities: data.responsibilities
+      };
+
       if (isEditing && stakeholder) {
-        await updateStakeholder(stakeholder.id, data)
+        await updateStakeholder(stakeholder.id, stakeholderData)
       } else {
-        await createStakeholder(projectId, data)
+        await createStakeholder(projectId, stakeholderData)
       }
 
       // Unmark Phase if it was previously complete
@@ -216,7 +224,7 @@ export function StakeholderForm({
           <AlertDialogHeader>
             <AlertDialogTitle>Confirm Modification</AlertDialogTitle>
             <AlertDialogDescription>
-              The "Stakeholders" phase is marked as complete. {isEditing ? 'Updating this stakeholder' : 'Adding a new stakeholder'} will reset this status. Do you want to proceed?
+              The &quot;Stakeholders&quot; phase is marked as complete. {isEditing ? 'Updating this stakeholder' : 'Adding a new stakeholder'} will reset this status. Do you want to proceed?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

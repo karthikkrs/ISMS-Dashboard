@@ -4,11 +4,12 @@ import React, { useState, useEffect } from 'react';
 import { useForm, SubmitHandler, Controller } from 'react-hook-form'; // Import Controller
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'; // Import query/mutation hooks
+import { useQuery, useQueryClient } from '@tanstack/react-query'; // Removed useMutation
 import { updateBoundaryControl } from '@/services/boundary-control-service';
 import { getProjectById, unmarkProjectPhaseComplete } from '@/services/project-service'; // Import project service functions
 import { getBoundaryById } from '@/services/boundary-service'; // Import getBoundaryById
-import { BoundaryControl, ProjectWithStatus, Boundary } from '@/types'; // Import Project type & Boundary
+import { BoundaryControl, ProjectWithStatus, complianceStatuses, ComplianceStatus } from '@/types'; // Import centralized types
+import { Tables } from '@/types/database.types'; // Import Tables helper
 import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
@@ -26,10 +27,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input'; // For date input
 import { Loader2, Save, CheckCircle, XCircle, AlertTriangle, HelpCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-
-// Define compliance statuses
-const complianceStatuses = ['Compliant', 'Partially Compliant', 'Non Compliant', 'Not Assessed'] as const;
-type ComplianceStatus = typeof complianceStatuses[number];
 
 // Zod schema for form validation
 const assessmentSchema = z.object({
@@ -53,7 +50,7 @@ export function ComplianceAssessment({ boundaryControl, onAssessmentSaved }: Com
   const [formData, setFormData] = useState<AssessmentFormData | null>(null);
 
   // Fetch boundary data to get project_id
-  const { data: boundary } = useQuery<Boundary | null>({
+  const { data: boundary } = useQuery<Tables<'boundaries'> | null>({ // Use Tables<'boundaries'>
     queryKey: ['boundary', boundaryControl.boundary_id],
     queryFn: () => getBoundaryById(boundaryControl.boundary_id), // Use service function
     enabled: !!boundaryControl.boundary_id,
@@ -69,7 +66,7 @@ export function ComplianceAssessment({ boundaryControl, onAssessmentSaved }: Com
     staleTime: Infinity,
   });
 
-  const { register, handleSubmit, reset, control, setValue, formState: { errors } } = useForm<AssessmentFormData>({
+  const { register, handleSubmit, reset, control, formState: { errors } } = useForm<AssessmentFormData>({ // Removed setValue
     resolver: zodResolver(assessmentSchema),
     defaultValues: {
       compliance_status: boundaryControl.compliance_status || 'Not Assessed',
@@ -111,9 +108,13 @@ export function ComplianceAssessment({ boundaryControl, onAssessmentSaved }: Com
 
       onAssessmentSaved();
       // TODO: Show success toast
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Failed to save assessment:", err);
-      setError(err.message || 'Failed to save assessment. Please try again.');
+      setError(
+        err instanceof Error 
+          ? err.message 
+          : 'Failed to save assessment. Please try again.'
+      );
       // TODO: Show error toast
     } finally {
       setIsSubmitting(false);
@@ -221,7 +222,7 @@ export function ComplianceAssessment({ boundaryControl, onAssessmentSaved }: Com
           <AlertDialogHeader>
             <AlertDialogTitle>Confirm Modification</AlertDialogTitle>
             <AlertDialogDescription>
-              The "Evidence & Gaps" phase is marked as complete. Saving this assessment will reset the phase status. Do you want to proceed?
+              The &quot;Evidence &amp; Gaps&quot; phase is marked as complete. Saving this assessment will reset the phase status. Do you want to proceed?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

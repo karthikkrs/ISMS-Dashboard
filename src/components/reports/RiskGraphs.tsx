@@ -1,8 +1,8 @@
 "use client";
 
-import React from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, Sector } from 'recharts';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import * as React from "react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, Sector } from "recharts";
+import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 
 // Dummy data for risk distribution
 const riskDistributionData = [
@@ -22,9 +22,39 @@ const riskCategoryData = [
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042']; // Blue, Green, Yellow, Orange
 
-const renderActiveShape = (props: any) => {
+// Define a simple custom interface for the active shape props
+interface CustomActiveShapeProps {
+  cx: number;
+  cy: number;
+  midAngle: number;
+  innerRadius: number;
+  outerRadius: number;
+  startAngle: number;
+  endAngle: number;
+  fill: string;
+  payload: { name: string; value: number };
+  percent: number;
+  value: number;
+}
+
+// Function needs to accept unknown type for Recharts compatibility
+const renderActiveShape = (props: unknown) => {
+  // Type cast to our custom interface
+  const { 
+    cx, 
+    cy, 
+    midAngle, 
+    innerRadius, 
+    outerRadius, 
+    startAngle, 
+    endAngle, 
+    fill, 
+    payload, 
+    percent, 
+    value 
+  } = props as CustomActiveShapeProps;
+  
   const RADIAN = Math.PI / 180;
-  const { cx, cy, midAngle, innerRadius, outerRadius, startAngle, endAngle, fill, payload, percent, value } = props;
   const sin = Math.sin(-RADIAN * midAngle);
   const cos = Math.cos(-RADIAN * midAngle);
   const sx = cx + (outerRadius + 10) * cos;
@@ -68,11 +98,11 @@ const renderActiveShape = (props: any) => {
   );
 };
 
-
 export function RiskGraphs() {
   const [activeIndex, setActiveIndex] = React.useState(0);
 
-  const onPieEnter = (_: any, index: number) => {
+  // Simplified event handler that ignores the first parameter
+  const onPieEnter = (_: unknown, index: number) => {
     setActiveIndex(index);
   };
 
@@ -119,7 +149,7 @@ export function RiskGraphs() {
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Pie>
-               <Tooltip />
+              <Tooltip />
             </PieChart>
           </ResponsiveContainer>
         </CardContent>

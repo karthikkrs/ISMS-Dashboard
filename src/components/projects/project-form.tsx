@@ -12,9 +12,9 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select' // Import Select components
 import { Label } from '@/components/ui/label' // Import Label
 import { createProject, updateProject } from '@/services/project-service'
-import { Project, ProjectStatus, ProjectWithStatus } from '@/types' // Import ProjectStatus and ProjectWithStatus
+import { ProjectWithStatus } from '@/types' // Removed Project, ProjectStatus imports since they're not used
 import { CalendarIcon, Loader2Icon } from 'lucide-react'
-import { format } from 'date-fns';
+// Removed unused format import
 
 // Define the allowed status values based on the type - use 'as const' for z.enum
 // Removed 'Not Started'
@@ -61,24 +61,29 @@ export function ProjectForm({ project, isEditing = false }: ProjectFormProps) {
     setIsSubmitting(true);
     setError(null);
 
-    // Prepare data for the service function, ensuring correct type for status
-    // The 'data' object from react-hook-form should already have the correct type based on the schema
-    const submissionData: ProjectFormValues = data; 
-
     try {
       if (isEditing && project) {
         // Update existing project - service function expects string status
-        await updateProject(project.id, submissionData); 
+        await updateProject(project.id, data); 
         router.push(`/dashboard/projects/${project.id}`);
       } else {
-        // Create new project - service function expects string status
-        const newProject = await createProject(submissionData); 
+        // Create new project - service function expects ProjectFormValues
+        // Make sure name is not undefined (required by createProject)
+        const newProject = await createProject({
+          name: data.name, // This is required and non-optional
+          description: data.description,
+          start_date: data.start_date,
+          end_date: data.end_date,
+          status: data.status
+        });
         router.push(`/dashboard/projects/${newProject.id}`);
       }
       router.refresh(); // Refresh the page to update the data
-    } catch (err: any) { // Catch specific error type if possible
+    } catch (err: unknown) { // Use unknown type for better type safety
       console.error('Error saving project:', err);
-      setError(err.message || 'Failed to save project. Please try again.');
+      // Check if the error has a message property before accessing it
+      const errorMessage = err instanceof Error ? err.message : 'Failed to save project. Please try again.';
+      setError(errorMessage);
     } finally {
       setIsSubmitting(false);
     }

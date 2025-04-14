@@ -1,8 +1,7 @@
 import { Metadata } from "next"
 import Link from "next/link"
+import { Suspense } from "react" // Import Suspense
 
-import { cn } from "@/lib/utils"
-import { buttonVariants } from "@/components/ui/button"
 import { UserAuthForm } from "@/components/auth/user-auth-form"
 
 export const metadata: Metadata = {
@@ -56,7 +55,10 @@ export default function SignUpPage() {
                 Enter your email and password below to create your account
               </p>
             </div>
-            <UserAuthForm isSignIn={false} />
+            {/* Wrap UserAuthForm in Suspense boundary */}
+            <Suspense fallback={<div className="text-center">Loading...</div>}>
+              <UserAuthForm isSignIn={false} />
+            </Suspense>
             <p className="text-center text-sm text-muted-foreground">
               Already have an account?{" "}
               <Link

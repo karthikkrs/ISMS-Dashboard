@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { getProjects, getProjectStats } from '@/services/project-service'
-import { ProjectWithStatus, ProjectStatus } from '@/types'
+import { ProjectStatus } from '@/types' // Removed ProjectWithStatus
 // Removed ProjectCard import
 import { ProjectStatsCards } from './project-stats'
 import { ProjectsFilter } from './projects-filter'
