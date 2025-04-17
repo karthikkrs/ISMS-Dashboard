@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import QueryProvider from "@/providers/query-provider";
 import { ToastProvider } from "@/providers/toast-provider";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -25,11 +26,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className="hydrated">
 <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <QueryProvider>
-          {children}
-          <ToastProvider />
+          <TooltipProvider>
+            {children}
+            <ToastProvider />
+          </TooltipProvider>
         </QueryProvider>
       </body>
     </html>

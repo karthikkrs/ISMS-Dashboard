@@ -415,134 +415,73 @@ export type Database = {
         }
         Relationships: []
       }
-      remediation_plans: {
-        Row: {
-          action_item: string
-          assigned_to: string | null
-          created_at: string | null
-          created_by: string
-          description: string | null
-          due_date: string | null
-          gap_id: string
-          id: string
-          priority: string
-          status: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          action_item: string
-          assigned_to?: string | null
-          created_at?: string | null
-          created_by: string
-          description?: string | null
-          due_date?: string | null
-          gap_id: string
-          id?: string
-          priority: string
-          status?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          action_item?: string
-          assigned_to?: string | null
-          created_at?: string | null
-          created_by?: string
-          description?: string | null
-          due_date?: string | null
-          gap_id?: string
-          id?: string
-          priority?: string
-          status?: string | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "remediation_plans_gap_id_fkey"
-            columns: ["gap_id"]
-            isOneToOne: false
-            referencedRelation: "gaps"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      remediation_updates: {
-        Row: {
-          comment: string
-          created_at: string | null
-          id: string
-          remediation_plan_id: string
-          updated_by: string
-        }
-        Insert: {
-          comment: string
-          created_at?: string | null
-          id?: string
-          remediation_plan_id: string
-          updated_by: string
-        }
-        Update: {
-          comment?: string
-          created_at?: string | null
-          id?: string
-          remediation_plan_id?: string
-          updated_by?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "remediation_updates_remediation_plan_id_fkey"
-            columns: ["remediation_plan_id"]
-            isOneToOne: false
-            referencedRelation: "remediation_plans"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       risk_assessments: {
         Row: {
+          ale: number | null
+          aro: number
           assessment_date: string | null
           assessment_notes: string | null
           assessor_id: string | null
           boundary_id: string
-          calculated_risk_value: number | null
-          control_id: string | null
           created_at: string | null
           gap_id: string | null
           id: string
           likelihood_frequency_input: Json | null
           loss_magnitude_input: Json | null
           project_id: string
+          severity: string
+          sle: number
+          sle_direct_operational_costs: number | null
+          sle_technical_remediation_costs: number | null
+          sle_data_related_costs: number | null
+          sle_compliance_legal_costs: number | null
+          sle_reputational_management_costs: number | null
           threat_scenario_id: string
           updated_at: string | null
         }
         Insert: {
+          ale?: number | null
+          aro: number
           assessment_date?: string | null
           assessment_notes?: string | null
           assessor_id?: string | null
           boundary_id: string
-          calculated_risk_value?: number | null
-          control_id?: string | null
           created_at?: string | null
           gap_id?: string | null
           id?: string
           likelihood_frequency_input?: Json | null
           loss_magnitude_input?: Json | null
           project_id: string
+          severity: string
+          sle: number
+          sle_direct_operational_costs?: number | null
+          sle_technical_remediation_costs?: number | null
+          sle_data_related_costs?: number | null
+          sle_compliance_legal_costs?: number | null
+          sle_reputational_management_costs?: number | null
           threat_scenario_id: string
           updated_at?: string | null
         }
         Update: {
+          ale?: number | null
+          aro?: number
           assessment_date?: string | null
           assessment_notes?: string | null
           assessor_id?: string | null
           boundary_id?: string
-          calculated_risk_value?: number | null
-          control_id?: string | null
           created_at?: string | null
           gap_id?: string | null
           id?: string
           likelihood_frequency_input?: Json | null
           loss_magnitude_input?: Json | null
           project_id?: string
+          severity?: string
+          sle?: number
+          sle_direct_operational_costs?: number | null
+          sle_technical_remediation_costs?: number | null
+          sle_data_related_costs?: number | null
+          sle_compliance_legal_costs?: number | null
+          sle_reputational_management_costs?: number | null
           threat_scenario_id?: string
           updated_at?: string | null
         }
@@ -580,74 +519,6 @@ export type Database = {
             columns: ["threat_scenario_id"]
             isOneToOne: false
             referencedRelation: "threat_scenarios"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      risk_remediation_links: {
-        Row: {
-          created_at: string | null
-          id: string
-          remediation_plan_id: string
-          risk_assessment_id: string
-        }
-        Insert: {
-          created_at?: string | null
-          id?: string
-          remediation_plan_id: string
-          risk_assessment_id: string
-        }
-        Update: {
-          created_at?: string | null
-          id?: string
-          remediation_plan_id?: string
-          risk_assessment_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "risk_remediation_links_remediation_plan_id_fkey"
-            columns: ["remediation_plan_id"]
-            isOneToOne: false
-            referencedRelation: "remediation_plans"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "risk_remediation_links_risk_assessment_id_fkey"
-            columns: ["risk_assessment_id"]
-            isOneToOne: false
-            referencedRelation: "risk_assessments"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      sows: {
-        Row: {
-          content: string | null
-          created_at: string | null
-          id: string
-          project_id: string
-          updated_at: string | null
-        }
-        Insert: {
-          content?: string | null
-          created_at?: string | null
-          id?: string
-          project_id: string
-          updated_at?: string | null
-        }
-        Update: {
-          content?: string | null
-          created_at?: string | null
-          id?: string
-          project_id?: string
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "sows_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]
@@ -698,7 +569,6 @@ export type Database = {
       }
       threat_scenarios: {
         Row: {
-          aro: number | null
           created_at: string | null
           description: string | null
           gap_id: string | null
@@ -706,13 +576,10 @@ export type Database = {
           mitre_techniques: string[] | null
           name: string
           project_id: string
-          relevant_iso_domains: string[] | null
-          sle: number | null
           threat_actor_type: string | null
           updated_at: string | null
         }
         Insert: {
-          aro?: number | null
           created_at?: string | null
           description?: string | null
           gap_id?: string | null
@@ -720,13 +587,10 @@ export type Database = {
           mitre_techniques?: string[] | null
           name: string
           project_id: string
-          relevant_iso_domains?: string[] | null
-          sle?: number | null
           threat_actor_type?: string | null
           updated_at?: string | null
         }
         Update: {
-          aro?: number | null
           created_at?: string | null
           description?: string | null
           gap_id?: string | null
@@ -734,8 +598,6 @@ export type Database = {
           mitre_techniques?: string[] | null
           name?: string
           project_id?: string
-          relevant_iso_domains?: string[] | null
-          sle?: number | null
           threat_actor_type?: string | null
           updated_at?: string | null
         }

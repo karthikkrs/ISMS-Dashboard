@@ -388,7 +388,8 @@ export const getBoundaryControlsWithDetails = async (boundaryId: string): Promis
       .from('boundary_controls')
       .select(`
         *,
-        controls:control_id (id, reference, description, domain, created_at)
+        controls:control_id (id, reference, description, domain, created_at),
+        boundaries:boundary_id (id, name, type)
       `)
       .eq('boundary_id', boundaryId)
     

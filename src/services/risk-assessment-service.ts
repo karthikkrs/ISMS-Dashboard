@@ -22,17 +22,11 @@ interface GapInfo {
   title: string;
 }
 
-interface ControlInfo {
-  id: string;
-  reference: string;
-}
-
 // Extended type for risk assessment with joined data
 interface RiskAssessmentWithRelations extends RiskAssessment {
   boundaries: BoundaryInfo;
   threat_scenarios: ThreatScenarioInfo;
   gaps?: GapInfo;
-  controls?: ControlInfo;
 }
 
 const supabase = createClient();
@@ -53,8 +47,7 @@ export async function getRiskAssessments(projectId: string): Promise<RiskAssessm
       *,
       boundaries (id, name, type),
       threat_scenarios (id, name),
-      gaps (id, title),
-      controls (id, reference)
+      gaps (id, title)
     `) // Join related data for context
     .eq('project_id', projectId)
     .order('created_at', { ascending: false });
@@ -110,8 +103,7 @@ export async function createRiskAssessment(data: RiskAssessmentInsert): Promise<
      ...data,
      assessor_id: data.assessor_id || user?.id,
      assessment_date: data.assessment_date || new Date().toISOString(),
-     // Risk calculation is commented out until implemented
-     // calculated_risk_value: calculateRisk(data.likelihood_frequency_input, data.loss_magnitude_input),
+     severity: data.severity || 'medium' // Default to medium if not provided
   };
 
 
@@ -144,9 +136,7 @@ export async function updateRiskAssessment(id: string, data: RiskAssessmentUpdat
 
    const dataToUpdate = {
      ...data,
-     updated_at: new Date().toISOString(), // Ensure updated_at is set
-     // Risk calculation is commented out until implemented
-     // calculated_risk_value: calculateRisk(data.likelihood_frequency_input, data.loss_magnitude_input),
+     updated_at: new Date().toISOString() // Ensure updated_at is set
    };
 
   const { data: updatedAssessment, error } = await supabase
@@ -175,19 +165,6 @@ export async function deleteRiskAssessment(id: string): Promise<void> {
   if (!id) {
     throw new Error('Risk assessment ID is required for deletion.');
   }
-
-  // Also delete related links first to avoid FK constraints
-  const { error: linkError } = await supabase
-    .from('risk_remediation_links')
-    .delete()
-    .eq('risk_assessment_id', id);
-
-  if (linkError) {
-     console.error(`Error deleting links for risk assessment ${id}:`, linkError);
-     // Decide if you want to throw or just log and continue
-     // throw new Error('Failed to delete associated remediation links.'); 
-  }
-
 
   const { error } = await supabase
     .from('risk_assessments')

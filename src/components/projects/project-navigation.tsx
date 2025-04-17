@@ -1,18 +1,16 @@
 'use client'
 
-// Removed unused useState, useEffect
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-// Removed unused cn
 import { 
   ClipboardListIcon, 
   MapIcon, 
   UsersIcon, 
-  // Removed unused FileTextIcon, ShieldIcon
   CheckSquareIcon,
   BarChart2Icon,
-  FileSearchIcon, // Import new icon
-  ClipboardCheckIcon // Import icon for Questionnaire
+  FileSearchIcon,
+  ClipboardCheckIcon,
+  AlertTriangleIcon
 } from 'lucide-react'
 import { getBoundaries } from '@/services/boundary-service'
 import { getStakeholders } from '@/services/stakeholder-service';
@@ -76,7 +74,6 @@ export function ProjectNavigation({ projectId }: ProjectNavigationProps) {
       icon: ClipboardListIcon,
       completed: true // Assuming overview is always accessible
     },
-    // Removed Objectives nav item
     {
       name: 'Boundaries',
       href: `/dashboard/projects/${projectId}/boundaries`,
@@ -106,6 +103,12 @@ export function ProjectNavigation({ projectId }: ProjectNavigationProps) {
       href: `/dashboard/projects/${projectId}/evidence-gaps`,
       icon: FileSearchIcon, 
       completed: false // Placeholder, logic to determine completion needed later
+    },
+    {
+      name: 'Risk Register',
+      href: `/dashboard/projects/${projectId}/risk-register`,
+      icon: AlertTriangleIcon,
+      completed: false, // Placeholder, logic to determine completion needed later
     },
     {
       name: 'Reports',

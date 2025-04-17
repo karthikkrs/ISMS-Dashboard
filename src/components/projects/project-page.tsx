@@ -6,7 +6,7 @@ import Link from 'next/link'
 // Import usePathname for navigation
 import { usePathname } from 'next/navigation' // Removed useRouter
 // Add ClipboardCheckIcon for Questionnaire
-import { ArrowLeft, Edit2, CheckCircle, LayoutDashboard, Users, ShieldCheck, ClipboardList, FolderOpenDot, BarChart3, ClipboardCheck } from 'lucide-react' // Fix ClipboardCheckIcon to ClipboardCheck
+import { ArrowLeft, Edit2, CheckCircle, LayoutDashboard, Users, ShieldCheck, ClipboardList, FolderOpenDot, BarChart3, ClipboardCheck, AlertTriangle } from 'lucide-react' // Added AlertTriangle for Risk Register
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs' // Removed TabsContent import
@@ -60,6 +60,7 @@ export function ProjectPage({ project, id, children }: ProjectPageProps) {
     if (pathname.startsWith(`/dashboard/projects/${id}/questionnaire`)) return "questionnaire"; 
     if (pathname.startsWith(`/dashboard/projects/${id}/soa`)) return "soa";
     if (pathname.startsWith(`/dashboard/projects/${id}/evidence-gaps`)) return "evidence";
+    if (pathname.startsWith(`/dashboard/projects/${id}/risk-register`)) return "risk-register";
     if (pathname.startsWith(`/dashboard/projects/${id}/reports`)) return "reports"; // Assuming reports page exists
     return "overview"; // Default to overview
   };
@@ -108,7 +109,7 @@ export function ProjectPage({ project, id, children }: ProjectPageProps) {
       {/* Tabs - Use derived activeTabValue, remove onValueChange */}
       <Tabs value={activeTabValue} className="mb-8">
         {/* Adjusted grid-cols and max-width - Increase cols for new tab */}
-        <TabsList className="grid w-full grid-cols-3 sm:grid-cols-4 md:grid-cols-7"> 
+        <TabsList className="grid w-full grid-cols-3 sm:grid-cols-4 md:grid-cols-8"> 
           {/* Wrap Tab Trigger content in Link for navigation */}
           <TabsTrigger value="overview" asChild className="flex items-center justify-center gap-2">
              <Link href={`/dashboard/projects/${id}`}>
@@ -153,14 +154,21 @@ export function ProjectPage({ project, id, children }: ProjectPageProps) {
                 {project.evidence_gaps_completed_at && <CheckCircle className="h-4 w-4 text-green-500 ml-1" />} {/* Added CheckCircle */}
              </Link>
           </TabsTrigger>
-           <TabsTrigger value="reports" asChild className="flex items-center justify-center gap-2">
+          <TabsTrigger value="risk-register" asChild className="flex items-center justify-center gap-2">
+             <Link href={`/dashboard/projects/${id}/risk-register`} className="flex items-center justify-center gap-1">
+                <AlertTriangle className="h-4 w-4" />
+                <span>Risk Register</span>
+                {/* No completion check for risk register yet */}
+             </Link>
+          </TabsTrigger>
+          <TabsTrigger value="reports" asChild className="flex items-center justify-center gap-2">
              {/* Assuming reports page exists at /dashboard/projects/${id}/reports */}
              <Link href={`/dashboard/projects/${id}/reports`}>
                 <BarChart3 className="h-4 w-4" /> {/* More specific icon */}
                 <span>Reports</span>
                 {/* Add completion logic if applicable */}
              </Link>
-           </TabsTrigger>
+          </TabsTrigger>
         </TabsList>
 
         {/* Render children directly - assumes parent page handles routing */}

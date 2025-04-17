@@ -21,10 +21,8 @@ const threatScenarioSchema = z.object({
   name: z.string().min(1, 'Scenario name is required'),
   description: z.string().nullable().optional(),
   threat_actor_type: z.string().nullable().optional(), // Could be an enum later
-  relevant_iso_domains: z.array(z.string()).nullable().optional(), // Array of strings
-  // Add new fields - keep as strings in schema, convert manually
-  sle: z.string().nullable().optional(),
-  aro: z.string().nullable().optional(),
+  // Field has been removed from database
+  // relevant_iso_domains: z.array(z.string()).nullable().optional(),
   // Store MITRE techniques as comma-separated string in form
   mitre_techniques_input: z.string().nullable().optional(), 
   gap_id: z.string().uuid().nullable().optional(), // Optional foreign key
@@ -35,9 +33,7 @@ type ThreatScenarioFormInput = z.infer<typeof threatScenarioSchema>;
 
 // Type expected by the database mutation (assuming schema update)
 // We'll construct this manually in onSubmit
-type ThreatScenarioSubmitData = Omit<ThreatScenarioFormInput, 'mitre_techniques_input' | 'sle' | 'aro'> & {
-  sle: number | null;
-  aro: number | null;
+type ThreatScenarioSubmitData = Omit<ThreatScenarioFormInput, 'mitre_techniques_input'> & {
   mitre_techniques: string[] | null;
 };
 
@@ -46,8 +42,6 @@ type ThreatScenario = Tables<'threat_scenarios'>;
 // Create a new type with the extra properties instead of extending
 type ExtendedThreatScenario = ThreatScenario & {
   // Additional properties that might not be in the base type
-  sle?: number | null;
-  aro?: number | null;
   mitre_techniques?: string[] | null;
 }
 
@@ -59,7 +53,6 @@ interface ThreatScenarioFormProps {
   onSuccess?: (scenario: ThreatScenario) => void; // Callback on success
   onCancel?: () => void;
 } 
-
 
 export function ThreatScenarioForm({
   projectId,
@@ -80,10 +73,6 @@ export function ThreatScenarioForm({
       description: threatScenario?.description ?? null,
       threat_actor_type: threatScenario?.threat_actor_type ?? null,
       // relevant_iso_domains: threatScenario?.relevant_iso_domains ?? null, // Keep commented out for now
-      // Add new defaults matching ThreatScenarioFormInput
-      // Access existing threatScenario properties carefully, convert numbers to string for form
-      sle: threatScenario?.sle?.toString() ?? null, 
-      aro: threatScenario?.aro?.toString() ?? null,
       mitre_techniques_input: threatScenario?.mitre_techniques?.join(', ') ?? '', // Use input field name
       gap_id: threatScenario?.gap_id ?? gapId ?? null, // Use prop if creating, existing if editing
     },
@@ -118,8 +107,6 @@ export function ThreatScenarioForm({
         description: null, 
         threat_actor_type: null, 
         // relevant_iso_domains: null, // Keep commented out
-        sle: null, 
-        aro: null, 
         mitre_techniques_input: '', 
         gap_id: gapId ?? null // Reset gap_id based on prop if creating
       }); 
@@ -141,83 +128,21 @@ export function ThreatScenarioForm({
 
   // onSubmit receives the validated INPUT data (ThreatScenarioFormInput)
   const onSubmit = (data: ThreatScenarioFormInput) => { 
-    // Manually construct the data for submission, converting types
-    const sleValue = data.sle && data.sle !== '' ? Number(data.sle) : null;
-    const aroValue = data.aro && data.aro !== '' ? Number(data.aro) : null;
-
-    // Basic validation after conversion (Zod schema only validated string format)
-    if (sleValue !== null && (isNaN(sleValue) || sleValue <= 0)) {
-       setError('SLE must be a positive number.');
-       return;
-    }
-     if (aroValue !== null && (isNaN(aroValue) || aroValue < 0)) {
-       setError('ARO cannot be negative.');
-       return;
-    }
     setError(null); // Clear previous errors if validation passes
 
     const submitData: ThreatScenarioSubmitData = {
       name: data.name,
       description: data.description,
       threat_actor_type: data.threat_actor_type,
-      relevant_iso_domains: data.relevant_iso_domains,
+      // Field removed from database
+      // relevant_iso_domains: data.relevant_iso_domains,
       gap_id: data.gap_id,
-      sle: sleValue,
-      aro: aroValue,
       mitre_techniques: data.mitre_techniques_input
         ? data.mitre_techniques_input.split(',').map(s => s.trim()).filter(Boolean)
         : null,
     };
     mutation.mutate(submitData);
   };
-
-  const formContent = (
-    <>
-      <div className="space-y-2">
-        <Label htmlFor="name">Scenario Name</Label>
-        <Input id="name" {...register('name')} placeholder="e.g., Ransomware Attack, Insider Data Theft" />
-        {errors.name && <p className="text-xs text-destructive mt-1">{errors.name.message}</p>}
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="description">Description (Optional)</Label>
-        <Textarea id="description" {...register('description')} placeholder="Describe the threat event..." />
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="threat_actor_type">Threat Actor Type (Optional)</Label>
-        <Input id="threat_actor_type" {...register('threat_actor_type')} placeholder="e.g., External Hacker, Disgruntled Employee" />
-      </div>
-      
-      {/* CRQ Fields */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="sle">Single Loss Expectancy (SLE) ($)</Label>
-          <Input id="sle" type="number" {...register('sle')} placeholder="e.g., 150000" /> 
-          {errors.sle && <p className="text-xs text-destructive mt-1">{errors.sle.message}</p>}
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="aro">Annualized Rate of Occurrence (ARO)</Label>
-          <Input id="aro" type="number" step="0.01" {...register('aro')} placeholder="e.g., 0.2 (1 in 5 years)" />
-          {errors.aro && <p className="text-xs text-destructive mt-1">{errors.aro.message}</p>}
-        </div>
-      </div>
-
-      {/* MITRE Techniques Field */}
-      <div className="space-y-2">
-        <Label htmlFor="mitre_techniques_input">MITRE ATT&CK Techniques (Optional, comma-separated)</Label>
-        <Textarea id="mitre_techniques_input" {...register('mitre_techniques_input')} placeholder="e.g., T1566, T1190, T1059" />
-        {errors.mitre_techniques_input && <p className="text-xs text-destructive mt-1">{errors.mitre_techniques_input.message}</p>}
-      </div>
-
-      {error && (
-         <div className="text-sm text-destructive flex items-center gap-2 bg-red-50 p-3 rounded-md border border-red-200">
-           <XCircle className="h-4 w-4" />
-           {error}
-         </div>
-       )}
-    </>
-  );
 
   return (
     // Wrap the form around the entire card
@@ -230,7 +155,35 @@ export function ThreatScenarioForm({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {formContent}
+          <div className="space-y-2">
+            <Label htmlFor="name">Scenario Name</Label>
+            <Input id="name" {...register('name')} placeholder="e.g., Ransomware Attack, Insider Data Theft" />
+            {errors.name && <p className="text-xs text-destructive mt-1">{errors.name.message}</p>}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="description">Description (Optional)</Label>
+            <Textarea id="description" {...register('description')} placeholder="Describe the threat event..." />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="threat_actor_type">Threat Actor Type (Optional)</Label>
+            <Input id="threat_actor_type" {...register('threat_actor_type')} placeholder="e.g., External Hacker, Disgruntled Employee" />
+          </div>
+
+          {/* MITRE Techniques Field */}
+          <div className="space-y-2">
+            <Label htmlFor="mitre_techniques_input">MITRE ATT&CK Techniques (Optional, comma-separated)</Label>
+            <Textarea id="mitre_techniques_input" {...register('mitre_techniques_input')} placeholder="e.g., T1566, T1190, T1059" />
+            {errors.mitre_techniques_input && <p className="text-xs text-destructive mt-1">{errors.mitre_techniques_input.message}</p>}
+          </div>
+
+          {error && (
+             <div className="text-sm text-destructive flex items-center gap-2 bg-red-50 p-3 rounded-md border border-red-200">
+               <XCircle className="h-4 w-4" />
+               {error}
+             </div>
+           )}
         </CardContent>
         <CardFooter className="flex justify-end gap-2">
           <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>

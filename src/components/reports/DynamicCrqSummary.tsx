@@ -45,9 +45,20 @@ const getAleBadgeVariant = (ale: number | null): "destructive" | "default" | "se
 };
 
 export function DynamicCrqSummary({ projectId }: DynamicCrqSummaryProps) {
-  const { data: scenarios = [], isLoading, error } = useQuery<ThreatScenarioWithRisk[]>({
+  const { data: scenarios = [], isLoading, error } = useQuery({
     queryKey: ['threatScenarios', projectId],
-    queryFn: () => getThreatScenariosForProject(projectId),
+    queryFn: async () => {
+      const threatScenarios = await getThreatScenariosForProject(projectId);
+      
+      // Transform the threat scenarios to include risk data
+      // This is temporary until we implement a proper join with risk_assessments
+      return threatScenarios.map(scenario => ({
+        ...scenario,
+        relevant_iso_domains: null, // Add required fields with default values
+        sle: null,
+        aro: null
+      })) as ThreatScenarioWithRisk[];
+    },
     enabled: !!projectId,
   });
 
