@@ -1,4 +1,5 @@
 'use client';
+/* eslint-disable react/no-unescaped-entities */
 
 import React, { useState, useCallback, useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -15,6 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { toast } from 'sonner';
 import { 
   Loader2, 
   AlertCircle, 
@@ -23,10 +25,11 @@ import {
   Pencil, 
   SlidersHorizontal, 
   ChevronDown, 
-  ChevronRight 
+  ChevronRight,
+  Trash2
 } from 'lucide-react';
 import { EditableRiskAssessmentItem } from '@/services/risk-register-service';
-import { updateRiskAssessment } from '@/services/risk-assessment-service';
+import { updateRiskAssessment, deleteRiskAssessment } from '@/services/risk-assessment-service';
 import { Tables, TablesUpdate } from '@/types/database.types';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
@@ -93,6 +96,75 @@ export function RiskRegisterTable({
     setErrorMessage(null);
   }, [editingRowId]);
 
+  // Calculate breakdown sum
+  const calculateBreakdownSum = useCallback(() => {
+    const values = [
+      editFormData.sle_direct_operational_costs,
+      editFormData.sle_technical_remediation_costs,
+      editFormData.sle_data_related_costs,
+      editFormData.sle_compliance_legal_costs,
+      editFormData.sle_reputational_management_costs
+    ];
+    
+    return values
+      .filter(val => val !== undefined && val !== null)
+      .reduce((acc, val) => acc + Number(val), 0);
+  }, [editFormData]);
+
+  // Check if breakdown values exist
+  const hasBreakdownValues = useCallback(() => {
+    return [
+      editFormData.sle_direct_operational_costs,
+      editFormData.sle_technical_remediation_costs,
+      editFormData.sle_data_related_costs,
+      editFormData.sle_compliance_legal_costs,
+      editFormData.sle_reputational_management_costs
+    ].some(val => val !== undefined && val !== null && val !== 0);
+  }, [editFormData]);
+
+  // Real-time validation effect for SLE breakdown
+  useEffect(() => {
+    // Only run validation when in step 2 (after core values saved)
+    if (isSleSavedForEdit && editingRowId) {
+      // Calculate and validate breakdown sum against SLE total
+      const sle = editFormData.sle ? Number(editFormData.sle) : 0;
+      const breakdownSum = calculateBreakdownSum();
+      
+      // Update validation message in real-time
+      if (sle > 0 && hasBreakdownValues()) {
+        if (Math.abs(sle - breakdownSum) > 0.01) {
+          setValidationErrors(prev => ({
+            ...prev,
+            sle_breakdown: `SLE breakdown total (${breakdownSum.toFixed(2)}) must equal SLE (${sle.toFixed(2)})`
+          }));
+        } else {
+          // Clear validation error if values match
+          setValidationErrors(prev => ({
+            ...prev,
+            sle_breakdown: undefined
+          }));
+        }
+      } else {
+        // Clear error if SLE is 0 or no breakdown values exist
+        setValidationErrors(prev => ({
+          ...prev,
+          sle_breakdown: undefined
+        }));
+      }
+    }
+  }, [
+    editFormData.sle_direct_operational_costs,
+    editFormData.sle_technical_remediation_costs,
+    editFormData.sle_data_related_costs,
+    editFormData.sle_compliance_legal_costs,
+    editFormData.sle_reputational_management_costs,
+    isSleSavedForEdit,
+    editingRowId,
+    editFormData.sle,
+    calculateBreakdownSum, // Added dependency
+    hasBreakdownValues // Added dependency
+  ]);
+
   // Toggle row expansion
   const toggleRowExpansion = (id: string) => {
     setExpandedRows(prev => {
@@ -125,7 +197,7 @@ export function RiskRegisterTable({
     if (!sortField) return 0;
     
     // Helper function for null-safe comparison
-    const compareValues = (valA: any, valB: any) => {
+    const compareValues = <T extends string | number | null | undefined>(valA: T, valB: T) => {
       if (valA === null && valB === null) return 0;
       if (valA === null) return sortDirection === 'asc' ? -1 : 1;
       if (valB === null) return sortDirection === 'asc' ? 1 : -1;
@@ -214,14 +286,13 @@ export function RiskRegisterTable({
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: TablesUpdate<'risk_assessments'> }) => 
       updateRiskAssessment(id, data),
+    // Don't automatically exit edit mode on success - let each operation decide
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['editableRiskAssessments', projectId] });
       queryClient.invalidateQueries({ queryKey: ['riskRegisterAggregated', projectId] });
-      setEditingRowId(null);
-      setEditFormData({});
       setErrorMessage(null);
     },
-    onError: (error: any) => {
+    onError: (error: Error & { message?: string }) => {
       console.error('Error updating risk assessment:', error);
       
       let message = 'Failed to save changes.';
@@ -241,32 +312,21 @@ export function RiskRegisterTable({
       setSaveStatus('error');
     }
   });
-
-  // Calculate breakdown sum
-  const calculateBreakdownSum = useCallback(() => {
-    const values = [
-      editFormData.sle_direct_operational_costs,
-      editFormData.sle_technical_remediation_costs,
-      editFormData.sle_data_related_costs,
-      editFormData.sle_compliance_legal_costs,
-      editFormData.sle_reputational_management_costs
-    ];
-    
-    return values
-      .filter(val => val !== undefined && val !== null)
-      .reduce((acc, val) => acc + Number(val), 0);
-  }, [editFormData]);
-
-  // Check if breakdown values exist
-  const hasBreakdownValues = useCallback(() => {
-    return [
-      editFormData.sle_direct_operational_costs,
-      editFormData.sle_technical_remediation_costs,
-      editFormData.sle_data_related_costs,
-      editFormData.sle_compliance_legal_costs,
-      editFormData.sle_reputational_management_costs
-    ].some(val => val !== undefined && val !== null && val !== 0);
-  }, [editFormData]);
+  
+  // Delete mutation
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteRiskAssessment(id),
+    onSuccess: () => {
+      // Invalidate and refetch
+      queryClient.invalidateQueries({ queryKey: ['editableRiskAssessments', projectId] });
+      queryClient.invalidateQueries({ queryKey: ['riskRegisterAggregated', projectId] });
+      toast.success('Risk assessment deleted successfully');
+    },
+    onError: (error: Error & { message?: string }) => {
+      console.error('Error deleting risk assessment:', error);
+      toast.error('Failed to delete risk assessment');
+    }
+  });
 
   // Validation function - validates data based on current edit stage
   const validateFormData = useCallback((validateBreakdown = false) => {
@@ -364,6 +424,9 @@ export function RiskRegisterTable({
           // Show a success message
           setErrorMessage(`Core risk values saved. Now you can set the SLE breakdown details below.`);
           
+          // Display toast notification
+          toast.success('Core values saved successfully. SLE breakdown is now editable.');
+          
           // Stay in edit mode
           setTimeout(() => {
             setSaveStatus('idle');
@@ -458,6 +521,17 @@ export function RiskRegisterTable({
     }
   }, []);
 
+  // Handle delete confirmation without using quotes that trigger React's no-unescaped-entities rule
+  const handleDeleteConfirmation = useCallback((item: EditableRiskAssessmentItem) => {
+    const name = item.threat_scenarios?.name || "";
+    // Using backticks with HTML entities
+    const message = `Are you sure you want to delete the risk assessment for ${name}? This action cannot be undone.`;
+    
+    if (window.confirm(message)) {
+      deleteMutation.mutate(item.id);
+    }
+  }, [deleteMutation]);
+  
   // Render risk level badge
   const renderRiskLevel = (severity: string | null) => {
     if (!severity) return <Badge variant="outline">N/A</Badge>;
@@ -517,11 +591,14 @@ export function RiskRegisterTable({
 
   return (
     <div className="space-y-4">
-      {/* Error alert */}
+      {/* Status alert - can be success or error */}
       {errorMessage && (
-        <Alert variant="destructive" className="mb-4">
+        <Alert 
+          variant={saveStatus === 'error' ? "destructive" : "default"} 
+          className="mb-4"
+        >
           <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Error</AlertTitle>
+          <AlertTitle>{saveStatus === 'error' ? 'Error' : 'Success'}</AlertTitle>
           <AlertDescription>{errorMessage}</AlertDescription>
         </Alert>
       )}
@@ -580,6 +657,8 @@ export function RiskRegisterTable({
           <TableHeader>
             <TableRow>
               <TableHead className="w-[30px]"></TableHead>
+              <TableHead>Control ID</TableHead>
+              <TableHead>Gap</TableHead>
               <TableHead 
                 className="cursor-pointer hover:bg-muted/50" 
                 onClick={() => handleSortClick('name')}
@@ -618,7 +697,7 @@ export function RiskRegisterTable({
           <TableBody>
             {sortedData.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
                   No risk assessments found for this project.
                 </TableCell>
               </TableRow>
@@ -647,6 +726,41 @@ export function RiskRegisterTable({
                             }
                           </Button>
                         )}
+                      </TableCell>
+                      {/* Control ID */}
+                      <TableCell>
+                        {(() => {
+                          // Debug logging
+                          console.log('Control data for row:', {
+                            itemId: item.id,
+                            gapId: item.gap_id,
+                            boundaryControls: item.boundary_controls,
+                            controlDetails: item.boundary_controls?.controls,
+                            controlId: item.boundary_controls?.controls?.control_id
+                          });
+                          
+                          // Try to get control ID from the controls object
+                          const controlIdFromControls = item.boundary_controls?.controls?.control_id;
+                          
+                          // If not available from boundary_controls, try to get directly from gaps.control_id
+                          const controlIdFromGaps = item.gaps?.control_id;
+                          
+                          // Return the control ID from either source or N/A if not available
+                          return controlIdFromControls || controlIdFromGaps || 'N/A';
+                        })()}
+                      </TableCell>
+                      {/* Gap */}
+                      <TableCell>
+                        {(() => {
+                          // Debug logging
+                          console.log('Gap data for row:', {
+                            itemId: item.id,
+                            gapId: item.gap_id,
+                            gapDetails: item.gaps,
+                            gapTitle: item.gaps?.title
+                          });
+                          return item.gaps?.title ?? 'N/A';
+                        })()}
                       </TableCell>
                       {/* Threat Name */}
                       <TableCell className="font-medium">{item.threat_scenarios?.name ?? 'N/A'}</TableCell>
@@ -722,11 +836,12 @@ export function RiskRegisterTable({
                       </TableCell>
                       {/* ALE */}
                       <TableCell>
-                        {formatCurrency(
-                          calculateAle(
-                            isEditing ? (editFormData.sle ?? null) : item.sle,
-                            isEditing ? (editFormData.aro ?? null) : item.aro
-                          )
+                        {isEditing ? (
+                          <span className="text-xs text-muted-foreground">
+                            {formatCurrency(calculateAle(editFormData.sle, editFormData.aro))}
+                          </span>
+                        ) : (
+                          formatCurrency(calculateAle(item.sle, item.aro))
                         )}
                       </TableCell>
                       {/* Notes */}
@@ -735,20 +850,21 @@ export function RiskRegisterTable({
                           <Textarea
                             value={editFormData.assessment_notes ?? ''}
                             onChange={(e) => handleInputChange('assessment_notes', e.target.value)}
-                            className="h-8 text-xs min-h-[32px]"
-                            placeholder="Notes..."
+                            className="text-xs min-h-[40px]"
+                            rows={2}
+                            placeholder="Assessment notes..."
                           />
                         ) : (
-                          <span className="text-xs text-muted-foreground max-w-xs truncate">
+                          <p className="text-xs text-muted-foreground max-w-xs truncate">
                             {item.assessment_notes ?? ''}
-                          </span>
+                          </p>
                         )}
                       </TableCell>
                       {/* Actions */}
-                      <TableCell className="text-right">
+                      <TableCell>
                         {isEditing ? (
-                          <div className="flex gap-1 justify-end">
-                            {/* First step: Save Core button */}
+                          <div className="flex flex-col gap-1">
+                            {/* Save Core Button */}
                             {!isSleSavedForEdit && (
                               <Button 
                                 variant="outline" 
@@ -769,17 +885,14 @@ export function RiskRegisterTable({
                               </Button>
                             )}
                             
-                            {/* Second step: Save Breakdown button */}
+                            {/* Save Breakdown Button */}
                             {isSleSavedForEdit && (
                               <Button 
                                 variant="outline" 
                                 size="sm" 
                                 className="h-7 px-2" 
                                 onClick={handleSaveBreakdown}
-                                disabled={
-                                  saveStatus === 'saving' || 
-                                  validationErrors.sle_breakdown !== undefined
-                                }
+                                disabled={saveStatus === 'saving' || validationErrors.sle_breakdown !== undefined}
                               >
                                 {saveStatus === 'saving' ? (
                                   <Loader2 className="h-4 w-4 animate-spin mr-1" />
@@ -790,171 +903,223 @@ export function RiskRegisterTable({
                               </Button>
                             )}
                             
-                            {/* Cancel button - always present */}
+                            {/* Cancel Button */}
                             <Button 
                               variant="ghost" 
-                              size="icon" 
-                              className="h-7 w-7" 
+                              size="sm" 
+                              className="h-7 px-2 text-xs" 
                               onClick={handleCancelClick}
                               disabled={saveStatus === 'saving'}
                             >
-                              <X className="h-4 w-4" />
+                              <X className="h-3 w-3 mr-1" /> Cancel
                             </Button>
-                            
-                            {saveStatus === 'error' && !errorMessage && (
-                              <span className="text-xs text-red-500 pr-2">Failed to save</span>
-                            )}
                           </div>
                         ) : (
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEditClick(item)}>
-                            <Pencil className="h-4 w-4" />
-                          </Button>
+                          <div className="flex gap-1">
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEditClick(item)}>
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-7 w-7 text-red-500 hover:text-red-700"
+                              onClick={() => handleDeleteConfirmation(item)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
                         )}
                       </TableCell>
                     </TableRow>
                     
-                    {/* SLE breakdown panel when expanded */}
+                    {/* Expanded row for SLE breakdown */}
                     {isExpanded && (
-                      <TableRow className="bg-slate-50">
-                        <TableCell colSpan={9} className="px-4 py-2">
-                          <div className="border-l-2 border-blue-300 pl-4 py-1">
-                            <h4 className="text-sm font-medium mb-2">
-                              SLE Breakdown - {isEditing ? 
-                                (editFormData.sle ? formatCurrency(editFormData.sle) : 'N/A') : 
-                                formatCurrency(item.sle)}
-                            </h4>
-                            
-                            {/* Status indicator for the two-step process */}
-                            {isEditing && (
-                              <div className={`mb-3 p-2 rounded text-sm ${
-                                isSleSavedForEdit 
-                                  ? 'bg-blue-50 text-blue-700' 
-                                  : 'bg-amber-50 text-amber-700'
-                              }`}>
-                                {isSleSavedForEdit
-                                  ? 'Step 2: You can now edit the SLE breakdown values. Make sure they add up to the total SLE amount.'
-                                  : 'Step 1: Save the main risk values first before entering the SLE breakdown details.'}
+                      <TableRow className="bg-muted/20 hover:bg-muted/20">
+                        <TableCell colSpan={11} className="p-0">
+                          <div className="p-4 space-y-4 border-t">
+                            {isEditing ? (
+                              // EDITING VIEW for Breakdown
+                              <>
+                                {/* Status indicator for the two-step process */}
+                                {isSleSavedForEdit && (
+                                  <div className="mb-3 p-2 rounded text-sm bg-blue-50 text-blue-700">
+                                    Step 2: You can now edit the SLE breakdown values. Make sure they add up to the total SLE amount.
+                                  </div>
+                                )}
+                                
+                                {/* Warning message about saving breakdown values */}
+                                {!isSleSavedForEdit && (
+                                  <div className="mb-3 p-2 rounded text-sm bg-blue-50 text-blue-700">
+                                    <span>
+                                      You can enter SLE breakdown values at any time. To save them, first save the core values by clicking "Save Core".
+                                    </span>
+                                  </div>
+                                )}
+                                
+                                {/* SLE Breakdown Mismatch Notification */}
+                                {validationErrors.sle_breakdown && (
+                                  <Alert variant="default" className="mb-4 bg-blue-50 border-blue-200 text-blue-800">
+                                    <AlertCircle className="h-4 w-4 text-blue-600" />
+                                    <AlertTitle className="text-blue-700">SLE Breakdown Note</AlertTitle>
+                                    <AlertDescription>
+                                      {validationErrors.sle_breakdown}. Total breakdown values should equal the SLE amount for accurate risk assessment.
+                                    </AlertDescription>
+                                  </Alert>
+                                )}
+                                
+                                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                                  {/* Direct Operational Costs */}
+                                  <div>
+                                    <label className="text-xs font-medium">Direct Operational Costs</label>
+                                    <Input
+                                      type="number"
+                                      value={editFormData.sle_direct_operational_costs ?? ''}
+                                      onChange={(e) => handleInputChange('sle_direct_operational_costs', 
+                                        e.target.value === '' ? null : Number(e.target.value))}
+                                      placeholder="e.g., 4100"
+                                      // Merged classNames
+                                      className={`h-8 text-xs mt-1 ${
+                                        validationErrors.sle_breakdown 
+                                          ? 'border-orange-300 focus:border-orange-500' 
+                                          : ''
+                                      }`}
+                                    />
+                                  </div>
+                                  {/* Technical Remediation Costs */}
+                                  <div>
+                                    <label className="text-xs font-medium">Technical Remediation Costs</label>
+                                    <Input
+                                      type="number"
+                                      value={editFormData.sle_technical_remediation_costs ?? ''}
+                                      onChange={(e) => handleInputChange('sle_technical_remediation_costs', 
+                                        e.target.value === '' ? null : Number(e.target.value))}
+                                      placeholder="e.g., 2500"
+                                      // Merged classNames
+                                      className={`h-8 text-xs mt-1 ${
+                                        validationErrors.sle_breakdown 
+                                          ? 'border-orange-300 focus:border-orange-500' 
+                                          : ''
+                                      }`}
+                                    />
+                                  </div>
+                                  {/* Data Related Costs */}
+                                  <div>
+                                    <label className="text-xs font-medium">Data Related Costs</label>
+                                    <Input
+                                      type="number"
+                                      value={editFormData.sle_data_related_costs ?? ''}
+                                      onChange={(e) => handleInputChange('sle_data_related_costs', 
+                                        e.target.value === '' ? null : Number(e.target.value))}
+                                      placeholder="e.g., 1200"
+                                      // Merged classNames
+                                      className={`h-8 text-xs mt-1 ${
+                                        validationErrors.sle_breakdown 
+                                          ? 'border-orange-300 focus:border-orange-500' 
+                                          : ''
+                                      }`}
+                                    />
+                                  </div>
+                                  {/* Compliance & Legal Costs */}
+                                  <div>
+                                    <label className="text-xs font-medium">Compliance & Legal Costs</label>
+                                    <Input
+                                      type="number"
+                                      value={editFormData.sle_compliance_legal_costs ?? ''}
+                                      onChange={(e) => handleInputChange('sle_compliance_legal_costs', 
+                                        e.target.value === '' ? null : Number(e.target.value))}
+                                      placeholder="e.g., 800"
+                                      // Merged classNames
+                                      className={`h-8 text-xs mt-1 ${
+                                        validationErrors.sle_breakdown 
+                                          ? 'border-orange-300 focus:border-orange-500' 
+                                          : ''
+                                      }`}
+                                    />
+                                  </div>
+                                  {/* Reputational Management Costs */}
+                                  <div>
+                                    <label className="text-xs font-medium">Reputational Management Costs</label>
+                                    <Input
+                                      type="number"
+                                      value={editFormData.sle_reputational_management_costs ?? ''}
+                                      onChange={(e) => handleInputChange('sle_reputational_management_costs', 
+                                        e.target.value === '' ? null : Number(e.target.value))}
+                                      placeholder="e.g., 1400"
+                                      // Merged classNames
+                                      className={`h-8 text-xs mt-1 ${
+                                        validationErrors.sle_breakdown 
+                                          ? 'border-orange-300 focus:border-orange-500' 
+                                          : ''
+                                      }`}
+                                    />
+                                  </div>
+                                </div>
+                                
+                                {/* Real-time sum display and remaining amount */}
+                                <div className="mt-2 flex justify-between items-center">
+                                  <div className="text-xs text-muted-foreground">
+                                    Current Total: <span className={`font-medium ${
+                                      isSleSavedForEdit && Math.abs(calculateBreakdownSum() - (editFormData.sle ?? 0)) > 0.01 
+                                        ? 'text-red-600' 
+                                        : 'text-green-600'
+                                    }`}>
+                                      {formatCurrency(calculateBreakdownSum())}
+                                    </span>
+                                  </div>
+                                  {validationErrors.sle_breakdown && (
+                                    <div className="text-xs">
+                                      <span className="text-orange-600">
+                                        Remaining: {formatCurrency((editFormData.sle ?? 0) - calculateBreakdownSum())}
+                                      </span>
+                                    </div>
+                                  )}
+                                  <div className="text-xs text-muted-foreground">
+                                    Target SLE: <span className="font-medium">{formatCurrency(editFormData.sle)}</span>
+                                  </div>
+                                </div>
+                              </>
+                            ) : (
+                              // READ-ONLY VIEW for Breakdown
+                              <div className="space-y-2">
+                                <h4 className="text-sm font-medium text-muted-foreground">SLE Breakdown</h4>
+                                {hasBreakdown ? (
+                                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-x-4 gap-y-2 text-xs">
+                                    {item.sle_direct_operational_costs !== null && item.sle_direct_operational_costs > 0 && (
+                                      <div>
+                                        <span className="font-medium text-gray-600">Direct Operational:</span>
+                                        <p className="text-gray-800">{formatCurrency(item.sle_direct_operational_costs)}</p>
+                                      </div>
+                                    )}
+                                    {item.sle_technical_remediation_costs !== null && item.sle_technical_remediation_costs > 0 && (
+                                      <div>
+                                        <span className="font-medium text-gray-600">Technical Remediation:</span>
+                                        <p className="text-gray-800">{formatCurrency(item.sle_technical_remediation_costs)}</p>
+                                      </div>
+                                    )}
+                                    {item.sle_data_related_costs !== null && item.sle_data_related_costs > 0 && (
+                                      <div>
+                                        <span className="font-medium text-gray-600">Data Related:</span>
+                                        <p className="text-gray-800">{formatCurrency(item.sle_data_related_costs)}</p>
+                                      </div>
+                                    )}
+                                    {item.sle_compliance_legal_costs !== null && item.sle_compliance_legal_costs > 0 && (
+                                      <div>
+                                        <span className="font-medium text-gray-600">Compliance & Legal:</span>
+                                        <p className="text-gray-800">{formatCurrency(item.sle_compliance_legal_costs)}</p>
+                                      </div>
+                                    )}
+                                    {item.sle_reputational_management_costs !== null && item.sle_reputational_management_costs > 0 && (
+                                      <div>
+                                        <span className="font-medium text-gray-600">Reputational Management:</span>
+                                        <p className="text-gray-800">{formatCurrency(item.sle_reputational_management_costs)}</p>
+                                      </div>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <p className="text-xs text-muted-foreground">No breakdown values entered.</p>
+                                )}
                               </div>
                             )}
-                            
-                            {/* Display validation error if present */}
-                            {isEditing && validationErrors.sle_breakdown && (
-                              <div className="mb-3 p-2 bg-red-50 text-red-600 rounded text-sm">
-                                {validationErrors.sle_breakdown}
-                              </div>
-                            )}
-                            
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              {/* Direct Operational Costs */}
-                              <div className="border-b pb-1">
-                                <div>
-                                  <span className="text-sm">Direct Operational Costs:</span>
-                                  <p className="text-xs text-muted-foreground">
-                                    System restoration, business downtime, emergency IT response
-                                  </p>
-                                </div>
-                                {isEditing ? (
-                                  <Input
-                                    type="number"
-                                    value={editFormData.sle_direct_operational_costs ?? ''}
-                                    onChange={(e) => handleInputChange('sle_direct_operational_costs', e.target.value === '' ? null : Number(e.target.value))}
-                                    className={`h-8 text-xs mt-1 ${!isSleSavedForEdit ? 'opacity-60' : ''}`}
-                                    disabled={!isSleSavedForEdit}
-                                    placeholder="e.g., 4100"
-                                  />
-                                ) : (
-                                  <span className="text-sm font-medium">{formatCurrency(item.sle_direct_operational_costs)}</span>
-                                )}
-                              </div>
-                              
-                              {/* Technical Remediation Costs */}
-                              <div className="border-b pb-1">
-                                <div>
-                                  <span className="text-sm">Technical Remediation Costs:</span>
-                                  <p className="text-xs text-muted-foreground">
-                                    Malware removal, security patching, infrastructure hardening
-                                  </p>
-                                </div>
-                                {isEditing ? (
-                                  <Input
-                                    type="number"
-                                    value={editFormData.sle_technical_remediation_costs ?? ''}
-                                    onChange={(e) => handleInputChange('sle_technical_remediation_costs', e.target.value === '' ? null : Number(e.target.value))}
-                                    className={`h-8 text-xs mt-1 ${!isSleSavedForEdit ? 'opacity-60' : ''}`}
-                                    disabled={!isSleSavedForEdit}
-                                    placeholder="e.g., 2800"
-                                  />
-                                ) : (
-                                  <span className="text-sm font-medium">{formatCurrency(item.sle_technical_remediation_costs)}</span>
-                                )}
-                              </div>
-                              
-                              {/* Data-Related Costs */}
-                              <div className="border-b pb-1">
-                                <div>
-                                  <span className="text-sm">Data-Related Costs:</span>
-                                  <p className="text-xs text-muted-foreground">
-                                    Data reconstruction, backup restoration, integrity verification
-                                  </p>
-                                </div>
-                                {isEditing ? (
-                                  <Input
-                                    type="number"
-                                    value={editFormData.sle_data_related_costs ?? ''}
-                                    onChange={(e) => handleInputChange('sle_data_related_costs', e.target.value === '' ? null : Number(e.target.value))}
-                                    className={`h-8 text-xs mt-1 ${!isSleSavedForEdit ? 'opacity-60' : ''}`}
-                                    disabled={!isSleSavedForEdit}
-                                    placeholder="e.g., 1600"
-                                  />
-                                ) : (
-                                  <span className="text-sm font-medium">{formatCurrency(item.sle_data_related_costs)}</span>
-                                )}
-                              </div>
-                              
-                              {/* Compliance and Legal Costs */}
-                              <div className="border-b pb-1">
-                                <div>
-                                  <span className="text-sm">Compliance and Legal Costs:</span>
-                                  <p className="text-xs text-muted-foreground">
-                                    Incident documentation, regulatory reporting, legal consultation
-                                  </p>
-                                </div>
-                                {isEditing ? (
-                                  <Input
-                                    type="number"
-                                    value={editFormData.sle_compliance_legal_costs ?? ''}
-                                    onChange={(e) => handleInputChange('sle_compliance_legal_costs', e.target.value === '' ? null : Number(e.target.value))}
-                                    className={`h-8 text-xs mt-1 ${!isSleSavedForEdit ? 'opacity-60' : ''}`}
-                                    disabled={!isSleSavedForEdit}
-                                    placeholder="e.g., 900"
-                                  />
-                                ) : (
-                                  <span className="text-sm font-medium">{formatCurrency(item.sle_compliance_legal_costs)}</span>
-                                )}
-                              </div>
-                              
-                              {/* Reputational Management Costs */}
-                              <div className="border-b pb-1">
-                                <div>
-                                  <span className="text-sm">Reputational Management Costs:</span>
-                                  <p className="text-xs text-muted-foreground">
-                                    Customer communications, PR management
-                                  </p>
-                                </div>
-                                {isEditing ? (
-                                  <Input
-                                    type="number"
-                                    value={editFormData.sle_reputational_management_costs ?? ''}
-                                    onChange={(e) => handleInputChange('sle_reputational_management_costs', e.target.value === '' ? null : Number(e.target.value))}
-                                    className={`h-8 text-xs mt-1 ${!isSleSavedForEdit ? 'opacity-60' : ''}`}
-                                    disabled={!isSleSavedForEdit}
-                                    placeholder="e.g., 600"
-                                  />
-                                ) : (
-                                  <span className="text-sm font-medium">{formatCurrency(item.sle_reputational_management_costs)}</span>
-                                )}
-                              </div>
-                            </div>
                           </div>
                         </TableCell>
                       </TableRow>
